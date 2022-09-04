@@ -1,42 +1,37 @@
+mod adapter;
+pub mod message;
 mod response;
 
+pub use async_trait::async_trait;
+use core::panic;
+use message::{BaseResponse, EventPacket, MessageEvent};
 use response::{AboutResponse, BindResponse, VerifyResponse};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-#[derive(Debug)]
+
+pub type Target = u64;
+
 pub struct Mirai {
     host: String,
     port: u32,
     verify_key: String,
     qq: u32,
     session_key: String,
+    event_handler: Option<Arc<dyn EventHandler>>,
 }
 
 impl Mirai {
-    pub fn new(host: &str, port: u32, verify_key: &str) -> Self {
-        Mirai {
+    pub fn builder(host: &str, port: u32, verify_key: &str) -> MiraiBuilder {
+        MiraiBuilder {
             host: host.to_string(),
-            port: port,
+            port,
             verify_key: verify_key.to_string(),
             qq: 0,
-            session_key: "".to_string(),
+            event_handler: None,
         }
-    }
-
-    pub fn bind_qq(&self, qq: u32) -> Mirai {
-        // let mut mirai = Clone::clone(self);
-        let mirai = Mirai {
-            host: self.host.clone(),
-            port: self.port,
-            verify_key: self.verify_key.clone(),
-            qq: qq,
-            session_key: "".to_string(),
-        };
-        // mirai.qq = qq;
-        // return mirai;
-        mirai
     }
 
     /**
@@ -64,7 +59,6 @@ impl Mirai {
     }
 
     pub async fn bind(&self) -> HttpResult<BindResponse> {
-        println!("self{:?}", &self);
         let js = json!({"verifyKey": self.verify_key});
         let client = reqwest::Client::new();
         let mut data: HashMap<&str, Value> = HashMap::new();
@@ -96,7 +90,133 @@ impl Mirai {
         Ok(resp)
     }
 
-    pub fn get_url(&self, uri: &str) -> String {
-        return format!("{}:{}{}", self.host, self.port, uri);
+    pub async fn fetch_message(&self, count: u32) -> HttpResult<BaseResponse<Vec<EventPacket>>> {
+        let path = format!(
+            "/fetchMessage?sessionKey={}&count={}",
+            &self.session_key, count
+        );
+        let client = reqwest::Client::new();
+        let resp: BaseResponse<Vec<EventPacket>> = client
+            .get(&self.get_url(path.as_str()))
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(resp)
     }
+
+    pub async fn start(mut self) {
+        let event_handler = match &self.event_handler {
+            Some(event_handler) => event_handler,
+            None => {
+                panic!("");
+            }
+        };
+        loop {
+            let result = self.fetch_message(1).await;
+            let event_handler = event_handler.clone();
+            match result {
+                Ok(res) => {
+                    for item in res.data {
+                        if let EventPacket::MessageEvent(message) = item {
+                            event_handler.message(message).await;
+                            continue;
+                        }
+                        println!("接收到其它消息");
+                        println!("{:?}", serde_json::to_string(&item).unwrap());
+                    }
+                }
+                Err(err) => {
+                    println!("{:?}", err);
+                    println!("获取信息失败");
+                }
+            }
+            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+            //     let result = self.http_adapter.fetch_message(10).await;
+            //     println!("接收到消息? {:?}", result);
+            //     for event in result.data {
+            //         match event {
+            //             EventPacket::MessageEvent(message_event) => {
+            //                 self.event_handler.message(message_event.clone()).await;
+            //                 match message_event {
+            //                     MessageEvent::GroupMessage(message) => {
+            //                         self.event_handler.group_message(message).await
+            //                     }
+            //                     _ => println!(),
+            //                 }
+            //             }
+            //             event => {
+            //                 println!("{:?}", event);
+            //                 eprintln!("没有处理的事件");
+            //             }
+            //         }
+            //     }
+        }
+    }
+
+    pub fn get_url(&self, uri: &str) -> String {
+        return format!("http://{}:{}{}", self.host, self.port, uri);
+    }
+}
+
+pub struct MiraiBuilder {
+    host: String,
+    port: u32,
+    verify_key: String,
+    qq: u32,
+
+    event_handler: Option<Arc<dyn EventHandler>>,
+}
+
+impl MiraiBuilder {
+    pub fn bind_qq(mut self, qq: u32) -> Self {
+        self.qq = qq;
+        self
+    }
+    /// Sets an event handler with multiple methods for each possible event.
+    pub async fn event_handler<H: EventHandler + 'static>(mut self, event_handler: H) -> Mirai {
+        self.event_handler = Some(Arc::new(event_handler));
+
+        let mut mirai = Mirai {
+            host: self.host,
+            port: self.port,
+            verify_key: self.verify_key,
+            qq: self.qq,
+            event_handler: self.event_handler,
+            session_key: "".to_string(),
+        };
+
+        println!("{},{}", &mirai.host, &mirai.port);
+
+        match mirai.verify().await {
+            Ok(res) => {
+                mirai.session_key = res.session;
+            }
+            Err(err) => {
+                eprintln!("{:?}", err);
+                panic!("获取verify请求出错");
+            }
+        }
+
+        match mirai.bind().await {
+            Ok(res) => {}
+            Err(err) => {
+                println!("绑定qq请求出错")
+            }
+        }
+
+        mirai
+    }
+}
+
+pub mod api {
+    pub use super::message::EventPacket;
+    pub use super::message::MessageEvent;
+}
+
+/// The core trait for handling events by serenity.
+#[async_trait]
+pub trait EventHandler: Send + Sync {
+    async fn message(&self, msg: MessageEvent);
 }
