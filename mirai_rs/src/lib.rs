@@ -1,6 +1,7 @@
 mod adapter;
 pub mod message;
 pub mod mirai_http;
+pub mod model;
 pub mod response;
 
 pub use async_trait::async_trait;
@@ -157,7 +158,7 @@ impl Mirai {
     }
 
     pub async fn get_http(&self) -> mirai_http::MiraiHttp {
-        mirai_http::MiraiHttp {}
+        mirai_http::MiraiHttp::new(self)
     }
 
     pub fn get_url(&self, uri: &str) -> String {

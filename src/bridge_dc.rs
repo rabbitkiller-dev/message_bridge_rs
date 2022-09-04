@@ -105,13 +105,18 @@ impl EventHandler for Handler {
         let sender = self.bridge.sender.clone();
 
         let user = bridge::User {
-            name: msg.author.name,
+            name: format!("[DC] {}#{}", msg.author.name, msg.author.discriminator),
         };
-        let bridge_message = bridge::BridgeMessage {
+        let mut bridge_message = bridge::BridgeMessage {
             bridge_config: bridgeConfig.clone(),
             message_chain: Vec::new(),
             user: user,
         };
+        bridge_message
+            .message_chain
+            .push(bridge::MessageContent::Plain {
+                text: msg.content.clone(),
+            });
         self.bridge.send(bridge_message);
         println!("收到来自dc的消息: {}", msg.content);
         if msg.content == "!hello" {

@@ -1,6 +1,6 @@
 use crate::{bridge, Config};
 use mirai_rs::api::MessageEvent;
-use mirai_rs::message::{GroupMessage, MessageContent};
+use mirai_rs::message::{GroupMessage, MessageChain, MessageContent};
 use mirai_rs::EventHandler;
 use mirai_rs::Mirai;
 use std::sync::{Arc, Mutex};
@@ -14,6 +14,23 @@ pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai
         let message = bridge.sender.subscribe().recv().await.unwrap();
         println!("[bridge_qq] 收到桥的消息, 同步到qq上");
         println!("{:?}", message);
+        let mut message_chain: MessageChain = vec![];
+
+        // 配置用户名
+        message_chain.push(MessageContent::Plain {
+            text: format!("{}\n", message.user.name),
+        });
+
+        for chain in message.message_chain.iter() {
+            match chain {
+                bridge::MessageContent::Plain { text } => {
+                    message_chain.push(MessageContent::Plain { text: text.clone() })
+                }
+            }
+        }
+        mirai
+            .send_group_message(message_chain, message.bridge_config.qqGroup)
+            .await;
     }
 }
 
