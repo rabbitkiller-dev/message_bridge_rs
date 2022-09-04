@@ -1,6 +1,7 @@
 mod adapter;
 pub mod message;
-mod response;
+pub mod mirai_http;
+pub mod response;
 
 pub use async_trait::async_trait;
 use core::panic;
@@ -106,7 +107,7 @@ impl Mirai {
         Ok(resp)
     }
 
-    pub async fn start(mut self) {
+    pub async fn start(&mut self) {
         let event_handler = match &self.event_handler {
             Some(event_handler) => event_handler,
             None => {
@@ -153,6 +154,10 @@ impl Mirai {
             //         }
             //     }
         }
+    }
+
+    pub async fn get_http(&self) -> mirai_http::MiraiHttp {
+        mirai_http::MiraiHttp {}
     }
 
     pub fn get_url(&self, uri: &str) -> String {

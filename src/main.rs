@@ -3,49 +3,27 @@ mod bridge_dc;
 mod bridge_qq;
 
 use std::fs;
-use std::path;
 use std::sync::{Arc, Mutex};
 
 use serde::Deserialize;
 use serde::Serialize;
-use serenity::prelude::*;
-
-use mirai_rs::Mirai;
 
 pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let bridge_service = Arc::new(bridge::BridgeService::new());
     let config = Arc::new(Config::new());
-    let mirai = Mirai::builder(
-        &config.miraiConfig.host,
-        config.miraiConfig.port,
-        &config.miraiConfig.verifyKey,
-    )
-    .bind_qq(3245538509)
-    .event_handler(bridge_qq::MiraiBridgeHandler {
-        config: config.clone(),
-        bridge: bridge_service.clone(),
-    })
-    .await;
+    let mut bridge_service = bridge::BridgeService::new();
+    let bridge_service = Arc::new(Mutex::new(bridge_service));
+    let bridge_dc_client =
+        bridge::BridgeService::create_client("bridge_dc_client", bridge_service.clone());
+    let bridge_qq_client =
+        bridge::BridgeService::create_client("bridge_qq_client", bridge_service.clone());
+    // let a = Some(bridge_service.clone());
 
-    let token = &config.discordConfig.botToken;
-    let intents = GatewayIntents::GUILD_MESSAGES
-        | GatewayIntents::DIRECT_MESSAGES
-        | GatewayIntents::MESSAGE_CONTENT;
-
-    let mut client = Client::builder(&token, intents)
-        .event_handler(bridge_dc::Handler {
-            config: config.clone(),
-            bridge: bridge_service.clone(),
-        })
-        .await
-        .expect("Err creating client");
     tokio::select! {
-        val = mirai.start() => {},
-        val = client.start() => {},
-        val = bridge_dc::dc(bridge_service.clone()) => {}
+        val = bridge_dc::start(config.clone(), bridge_dc_client) => {},
+        val = bridge_qq::start(config.clone(), bridge_qq_client) => {},
     }
 
     Ok(())

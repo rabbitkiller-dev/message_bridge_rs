@@ -2,10 +2,38 @@ use crate::{bridge, Config};
 use mirai_rs::api::MessageEvent;
 use mirai_rs::message::{GroupMessage, MessageContent};
 use mirai_rs::EventHandler;
+use mirai_rs::Mirai;
 use std::sync::{Arc, Mutex};
 pub struct MiraiBridgeHandler {
     pub config: Arc<Config>,
-    pub bridge: Arc<bridge::BridgeService>,
+    pub bridge: Arc<bridge::BridgeClient>,
+}
+
+pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai_http::MiraiHttp) {
+    loop {
+        let message = bridge.sender.subscribe().recv().await.unwrap();
+        println!("[bridge_qq] 收到桥的消息, 同步到qq上");
+        println!("{:?}", message);
+    }
+}
+
+pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
+    let mut mirai = Mirai::builder(
+        &config.miraiConfig.host,
+        config.miraiConfig.port,
+        &config.miraiConfig.verifyKey,
+    )
+    .bind_qq(3245538509)
+    .event_handler(MiraiBridgeHandler {
+        config: config.clone(),
+        bridge: bridge.clone(),
+    })
+    .await;
+    let http = mirai.get_http().await;
+    tokio::select! {
+        _ = mirai.start() => {},
+        _ = bridge_qq(bridge.clone(), http) => {},
+    }
 }
 
 #[mirai_rs::async_trait]
@@ -26,10 +54,17 @@ impl EventHandler for MiraiBridgeHandler {
                 }
             };
 
-            let sender = self.bridge.sender.clone();
+            let user = bridge::User {
+                name: format!(
+                    "[QQ] {}({})",
+                    group_message.sender.member_name.to_string(),
+                    group_message.sender.id
+                ),
+            };
             let mut bridge_message = bridge::BridgeMessage {
                 bridge_config: bridge_config.clone(),
                 message_chain: Vec::new(),
+                user,
             };
             for chain in &group_message.message_chain {
                 match chain {
@@ -59,7 +94,7 @@ impl EventHandler for MiraiBridgeHandler {
                         // MessageContent::MiraiCode { code } => todo!(),
                     }
             }
-            sender.send(bridge_message);
+            self.bridge.send(bridge_message);
             println!("接收到群消息:");
             println!("{:?}", group_message);
             // println!("接收到群消息:");

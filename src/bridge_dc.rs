@@ -1,4 +1,5 @@
 use crate::{bridge, Config};
+use std::ops::Add;
 use std::sync::{Arc, Mutex};
 
 use serenity::async_trait;
@@ -9,35 +10,65 @@ use serenity::model::webhook::Webhook;
 use serenity::model::Timestamp;
 use serenity::prelude::*;
 
-pub async fn dc(bridge: Arc<bridge::BridgeService>) {
+pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
     loop {
         let message = bridge.sender.subscribe().recv().await.unwrap();
-        println!("在dc监听到内容");
+        println!("[bridge_dc] 收到桥的消息, 同步到discord上");
         let http = Http::new("");
-        let webhook = Webhook::from_url(&http, "https://discord.com/api/webhooks/1005861193623285810/QWgRpQtk8HHO1HxL6i7XVxM3GD8C21u9YCizKzdilpqdIhnswoWB_x6zsCuiOHk899gt").await.unwrap();
+        let webhook = Webhook::from_id_with_token(
+            &http,
+            message.bridge_config.discord.id,
+            message.bridge_config.discord.token.as_str(),
+        )
+        .await
+        .unwrap();
+
         webhook
             .execute(&http, false, |w| {
+                let mut content: Vec<&str> = Vec::new();
                 for chain in &message.message_chain {
                     match chain {
-                        bridge::MessageContent::Plain { text } => {
-                            w.content(text);
-                        }
-                        _ => {
-                            println!("消息的内容没有处理");
-                        }
-                    }
+                        bridge::MessageContent::Plain { text } => &content.push(text),
+                        _ => &content.push("{无法识别的MessageChain}"),
+                    };
                 }
-                w.username("bot");
-                w
+                if content.len() == 0 {
+                    content.push("{本次发送的消息没有内容}")
+                }
+                w.content(content.join("")).username(message.user.name)
             })
             .await
             .expect("Could not execute webhook.");
     }
 }
 
+pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
+    let token = &config.discordConfig.botToken;
+    let intents = GatewayIntents::GUILD_MESSAGES
+        | GatewayIntents::DIRECT_MESSAGES
+        | GatewayIntents::MESSAGE_CONTENT;
+    println!("dc");
+
+    let mut client = Client::builder(&token, intents)
+        .event_handler(Handler {
+            config: config.clone(),
+            bridge: bridge.clone(),
+        })
+        .await
+        .expect("Err creating client");
+
+    println!("dc2");
+    tokio::select! {
+        val = client.start() => {
+            println!("xxxxxx");
+        },
+        val = dc(bridge.clone()) => {},
+    }
+}
+
 pub struct Handler {
     pub config: Arc<Config>,
-    pub bridge: Arc<bridge::BridgeService>,
+    pub bridge: Arc<bridge::BridgeClient>,
 }
 
 #[async_trait]
@@ -72,11 +103,16 @@ impl EventHandler for Handler {
         };
 
         let sender = self.bridge.sender.clone();
+
+        let user = bridge::User {
+            name: msg.author.name,
+        };
         let bridge_message = bridge::BridgeMessage {
             bridge_config: bridgeConfig.clone(),
             message_chain: Vec::new(),
+            user: user,
         };
-        // sender.send(bridge_message);
+        self.bridge.send(bridge_message);
         println!("收到来自dc的消息: {}", msg.content);
         if msg.content == "!hello" {
             // The create message builder allows you to easily create embeds and messages
