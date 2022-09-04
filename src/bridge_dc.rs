@@ -1,3 +1,4 @@
+use crate::bridge_log;
 use crate::{bridge, Config};
 use std::ops::Add;
 use std::sync::{Arc, Mutex};
@@ -10,6 +11,9 @@ use serenity::model::webhook::Webhook;
 use serenity::model::Timestamp;
 use serenity::prelude::*;
 
+/**
+*
+*/
 pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
     loop {
         let message = bridge.sender.subscribe().recv().await.unwrap();
@@ -33,7 +37,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
                     };
                 }
                 if content.len() == 0 {
-                    content.push("{本次发送的消息没有内容}")
+                    content.push("{本次发送的消息没有内容}");
                 }
                 w.content(content.join("")).username(message.user.name)
             })
@@ -88,7 +92,6 @@ impl EventHandler for Handler {
         {
             return;
         };
-
         let bridgeConfig = match self
             .config
             .bridges
@@ -101,12 +104,22 @@ impl EventHandler for Handler {
                 return;
             }
         };
-
-        let sender = self.bridge.sender.clone();
-
         let user = bridge::User {
             name: format!("[DC] {}#{}", msg.author.name, msg.author.discriminator),
         };
+
+        bridge_log::BridgeLog::write_log(
+            format!(
+                r#"discord桥要发送的消息
+{}
+{}"#,
+                user.name, msg.content
+            )
+            .as_str(),
+        );
+
+        let sender = self.bridge.sender.clone();
+
         let mut bridge_message = bridge::BridgeMessage {
             bridge_config: bridgeConfig.clone(),
             message_chain: Vec::new(),
@@ -118,7 +131,6 @@ impl EventHandler for Handler {
                 text: msg.content.clone(),
             });
         self.bridge.send(bridge_message);
-        println!("收到来自dc的消息: {}", msg.content);
         if msg.content == "!hello" {
             // The create message builder allows you to easily create embeds and messages
             // using a builder syntax.

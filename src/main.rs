@@ -1,8 +1,10 @@
 mod bridge;
 mod bridge_dc;
 mod bridge_qq;
+mod bridge_log;
+mod config;
 
-use std::fs;
+use config::*;
 use std::sync::{Arc, Mutex};
 
 use serde::Deserialize;
@@ -65,49 +67,6 @@ mod test {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
-pub struct Config {
-    miraiConfig: MiraiConfig,
-    discordConfig: DiscordConfig,
-    bridges: Vec<BridgeConfig>,
-}
-
-impl Config {
-    pub fn new() -> Self {
-        let file = fs::read_to_string("./config.json").unwrap();
-        // println!("{file}");
-        let config: Config = serde_json::from_str(file.as_str()).unwrap();
-
-        config
-    }
-}
-
-#[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
-struct MiraiConfig {
-    verifyKey: String,
-    host: String,
-    port: u32,
-}
-
-#[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
-struct DiscordConfig {
-    botId: u64,
-    botToken: String,
-}
-
-#[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq)]
-pub struct BridgeConfig {
-    discord: DiscordBridgeConfig,
-    qqGroup: u64,
-    enable: bool,
-}
-
-#[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq)]
-struct DiscordBridgeConfig {
-    id: u64,
-    token: String,
-    channelId: u64,
-}
 
 mod test_dc2;
 mod test_mirai;

@@ -69,12 +69,6 @@ impl BridgeClient {
     pub fn send(&self, message: BridgeMessage) {
         let bridge = self.bridge.lock().unwrap();
         for client in bridge.clients.iter() {
-            println!(
-                "1({}), 2({}), 3({})",
-                client.name,
-                self.name,
-                &client.name != &self.name
-            );
             if &client.name != &self.name {
                 client.sender.send(message.clone());
             }
