@@ -20,11 +20,17 @@ pub type MessageChain = Vec<MessageContent>;
 #[serde(tag = "type")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageContent {
-    Plain { text: String },
+    Plain {
+        text: String,
+    },
+    Image {
+        url: Option<String>, // 图片地址, 通常是cdn或者远程
+    },
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
     pub name: String,
+    pub avatar_url: Option<String>,
 }
 
 pub struct BridgeService {

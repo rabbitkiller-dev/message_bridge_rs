@@ -1,9 +1,9 @@
 use crate::message::MessageChain;
 use crate::message::{BaseResponse, EventPacket, MessageEvent};
 use crate::model::SendGroupMessageResponse;
-use crate::{HttpResult, Mirai};
+use crate::{response, HttpResult, Mirai};
 
-use serde_json::json;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 
 pub struct MiraiHttp {
@@ -47,15 +47,6 @@ impl MiraiHttp {
         message_chain: MessageChain,
         group: u64,
     ) -> HttpResult<SendGroupMessageResponse> {
-        // {
-        //     "sessionKey":"YourSession",
-        //     "target":987654321,
-        //     "messageChain":[
-        //       { "type":"Plain", "text":"hello\n" },
-        //       { "type":"Plain", "text":"world" },
-        //       { "type":"Image", "url":"https://i0.hdslb.com/bfs/album/67fc4e6b417d9c68ef98ba71d5e79505bbad97a1.png" }
-        //     ]
-        //   }
         let js = json!({
             "sessionKey": self.session_key,
             "group": group,
@@ -65,14 +56,31 @@ impl MiraiHttp {
         // let mut data = HashMap::new();
         // data.insert("verifyKey", self.verify_key.as_str());
 
-        let resp: SendGroupMessageResponse = self
+        let response = match self
             .req
             .post(self.get_url("/sendGroupMessage"))
             .json(&js)
             .send()
-            .await?
-            .json()
-            .await?;
+            .await
+        {
+            Ok(resp) => resp,
+            Err(err) => {
+                println!("[mirai_http] send_group_message请求失败");
+                println!("[mirai_http] {:?}", err);
+                Result::Err(err)?
+            }
+        };
+        println!("[mirai_http] send_group_message {}", response.status());
+        let resp = response.text().await.unwrap();
+        let resp: SendGroupMessageResponse = match serde_json::from_str(resp.as_str()) {
+            Ok(resp) => resp,
+            Err(err) => {
+                println!("[mirai_http] send_group_message转换json失败");
+                println!("[mirai_http] {:?}", resp);
+                println!("[mirai_http] {:?}", err);
+                Result::Err(err)?
+            }
+        };
 
         Ok(resp)
     }

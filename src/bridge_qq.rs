@@ -16,7 +16,16 @@ pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai
         println!("{:?}", message);
         let mut message_chain: MessageChain = vec![];
 
-        // 配置用户名
+        // 配置发送者头像
+        if let Some(_) = message.user.avatar_url {
+            message_chain.push(MessageContent::Image {
+                image_id: None,
+                url: message.user.avatar_url,
+                path: None,
+                base64: None,
+            });
+        }
+        // 配置发送者用户名
         message_chain.push(MessageContent::Plain {
             text: format!("{}\n", message.user.name),
         });
@@ -26,11 +35,23 @@ pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai
                 bridge::MessageContent::Plain { text } => {
                     message_chain.push(MessageContent::Plain { text: text.clone() })
                 }
+                _ => message_chain.push(MessageContent::Plain {
+                    text: "{无法识别的MessageChain}".to_string(),
+                }),
             }
         }
-        mirai
+        match mirai
             .send_group_message(message_chain, message.bridge_config.qqGroup)
-            .await;
+            .await
+        {
+            Ok(_) => {
+                println!("[bridge_qq] 同步桥信息成功");
+            }
+            Err(err) => {
+                println!("[bridge_qq] 同步桥信息失败");
+                println!("[bridge_qq] {:?}", err);
+            }
+        };
     }
 }
 
@@ -77,7 +98,12 @@ impl EventHandler for MiraiBridgeHandler {
                     group_message.sender.member_name.to_string(),
                     group_message.sender.id
                 ),
+                avatar_url: Some(format!(
+                    "https://q1.qlogo.cn/g?b=qq&nk={}&s=100",
+                    group_message.sender.id
+                )),
             };
+
             let mut bridge_message = bridge::BridgeMessage {
                 bridge_config: bridge_config.clone(),
                 message_chain: Vec::new(),

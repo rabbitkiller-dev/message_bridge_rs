@@ -6,5 +6,5 @@ use serde_json::Value;
 pub struct SendGroupMessageResponse {
     code: u32,
     msg: String,
-    messageId: u32,
+    messageId: u64,
 }
