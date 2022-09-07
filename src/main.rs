@@ -2,13 +2,13 @@ mod bridge;
 mod bridge_dc;
 mod bridge_qq;
 mod bridge_log;
+mod bridge_cmd;
+mod cmd_adapter;
+mod bridge_save;
 mod config;
 
 use config::*;
 use std::sync::{Arc, Mutex};
-
-use serde::Deserialize;
-use serde::Serialize;
 
 pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -21,11 +21,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         bridge::BridgeService::create_client("bridge_dc_client", bridge_service.clone());
     let bridge_qq_client =
         bridge::BridgeService::create_client("bridge_qq_client", bridge_service.clone());
+    let bridge_cmd_adapter =
+        bridge::BridgeService::create_client("bridge_cmd_adapter", bridge_service.clone());
     // let a = Some(bridge_service.clone());
 
     tokio::select! {
-        val = bridge_dc::start(config.clone(), bridge_dc_client) => {},
-        val = bridge_qq::start(config.clone(), bridge_qq_client) => {},
+        _ = bridge_dc::start(config.clone(), bridge_dc_client) => {},
+        _ = bridge_qq::start(config.clone(), bridge_qq_client) => {},
+        _ = cmd_adapter::start(config.clone(), bridge_cmd_adapter) => {},
     }
 
     Ok(())
@@ -68,5 +71,5 @@ mod test {
 }
 
 
-mod test_dc2;
+// mod test_dc2;
 mod test_mirai;

@@ -5,7 +5,13 @@ use std::sync::{Arc, Mutex};
 use serde::Deserialize;
 use serde::Serialize;
 use tokio::sync::broadcast;
-use tokio::sync::mpsc;
+
+/// 客户端所属平台
+#[derive(PartialEq, Eq, Debug)]
+pub enum BridgeClientPlatform {
+    Discord,
+    QQ,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeMessage {
@@ -13,12 +19,25 @@ pub struct BridgeMessage {
     pub message_chain: MessageChain,
     pub user: User,
 }
-impl BridgeMessage {}
+impl BridgeMessage {
+
+    /// 识别消息来自哪个平台
+    pub fn from_platform(&self) -> Option<BridgeClientPlatform> {
+        let user = &self.user.name;
+        if user.is_empty() || user.len() < 3 { return None; }
+        let p = match &user[1..3] {
+            "DC" => BridgeClientPlatform::Discord,
+            "QQ" => BridgeClientPlatform::QQ,
+            _ => { return None; },
+        };
+        Some(p)
+    }
+}
 
 pub type MessageChain = Vec<MessageContent>;
 
-#[serde(tag = "type")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum MessageContent {
     Plain { text: String },
 }
@@ -74,4 +93,29 @@ impl BridgeClient {
             }
         }
     }
+
+    /// 发送到指定频道
+    /// - cli 消息频道名
+    pub fn send_to(&self, cli: &str, msg: &BridgeMessage) {
+        let bridge = self.bridge.lock();
+        match bridge {
+            Ok(b) => {
+                let client = b.clients
+                    .iter()
+                    .find(|c| c.name == cli.to_string());
+                if let Some(cli) = client {
+                    if let Err(_) = cli.sender.send(msg.clone()) {
+                        println!("All Share-Receiver handles have already been dropped");
+                    }
+                } else {
+                    println!(r#"Can not found "{cli}""#);
+                }
+            },
+            Err(_) => {
+                println!("Err when get bridge lock");
+                return;
+            }
+        }// match
+    }// fn share
+
 }

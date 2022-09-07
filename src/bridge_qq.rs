@@ -83,6 +83,18 @@ impl EventHandler for MiraiBridgeHandler {
                 message_chain: Vec::new(),
                 user,
             };
+            // skip cmd
+            if let Some(token) = group_message.message_chain.get(0) {
+                match token {
+                    MessageContent::Plain { text } => {
+                        if text.starts_with("!") {
+                            self.bridge.send_to("bridge_cmd_adapter", &bridge_message);
+                            // return;
+                        }
+                    }
+                    _ => {}
+                }
+            }
             for chain in &group_message.message_chain {
                 match chain {
                         MessageContent::Plain { text } => {
