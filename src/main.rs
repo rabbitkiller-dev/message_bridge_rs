@@ -4,7 +4,6 @@ mod bridge_qq;
 mod bridge_log;
 mod bridge_cmd;
 mod cmd_adapter;
-mod bridge_save;
 mod config;
 
 use config::*;
