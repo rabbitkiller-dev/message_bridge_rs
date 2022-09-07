@@ -20,15 +20,18 @@ pub struct BridgeMessage {
     pub user: User,
 }
 impl BridgeMessage {
-
     /// 识别消息来自哪个平台
     pub fn from_platform(&self) -> Option<BridgeClientPlatform> {
         let user = &self.user.name;
-        if user.is_empty() || user.len() < 3 { return None; }
+        if user.is_empty() || user.len() < 3 {
+            return None;
+        }
         let p = match &user[1..3] {
             "DC" => BridgeClientPlatform::Discord,
             "QQ" => BridgeClientPlatform::QQ,
-            _ => { return None; },
+            _ => {
+                return None;
+            }
         };
         Some(p)
     }
@@ -43,7 +46,8 @@ pub enum MessageContent {
         text: String,
     },
     Image {
-        url: Option<String>, // 图片地址, 通常是cdn或者远程
+        url: Option<String>,  // 图片地址, 通常是cdn或者远程
+        path: Option<String>, // 本机图片地址
     },
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,9 +110,7 @@ impl BridgeClient {
         let bridge = self.bridge.lock();
         match bridge {
             Ok(b) => {
-                let client = b.clients
-                    .iter()
-                    .find(|c| c.name == cli.to_string());
+                let client = b.clients.iter().find(|c| c.name == cli.to_string());
                 if let Some(cli) = client {
                     if let Err(_) = cli.sender.send(msg.clone()) {
                         println!("All Share-Receiver handles have already been dropped");
@@ -116,12 +118,11 @@ impl BridgeClient {
                 } else {
                     println!(r#"Can not found "{cli}""#);
                 }
-            },
+            }
             Err(_) => {
                 println!("Err when get bridge lock");
                 return;
             }
-        }// match
-    }// fn share
-
+        } // match
+    } // fn share
 }

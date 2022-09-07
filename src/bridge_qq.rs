@@ -126,8 +126,24 @@ impl EventHandler for MiraiBridgeHandler {
                         MessageContent::Plain { text } => {
                             bridge_message.message_chain.push(bridge::MessageContent::Plain { text: text.to_string() })
                         }
+                        MessageContent::Image { image_id, url, path, base64 } => {
+                            if let Some(url) = url {
+                                let file_path = match crate::utils::download_and_cache(url).await {
+                                    Ok(path) => {
+                                        Some(path)
+                                    },
+                                    Err(err) => {
+                                        println!("[bridge_qq] 下载图片失败");
+                                        println!("[bridge_qq] {:?}", err);
+                                        None
+                                    }
+                                };
+                                // let base64 = image_base64::to_base64(path.as_str());
+                                bridge_message.message_chain.push(bridge::MessageContent::Image { url: Some(url.to_string()), path: file_path })
+                            }
+                        }
                         _ => {
-                            println!("消息的内容没有处理");
+                            bridge_message.message_chain.push(bridge::MessageContent::Plain { text: "{没有处理qq的MessageChain}".to_string() })
                         }
                         // MessageContent::Source { id, time } => todo!(),
                         // MessageContent::Quote { id, group_id, sender_id, target_id, origin } => todo!(),

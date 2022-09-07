@@ -1,9 +1,9 @@
 use crate::message::MessageChain;
-use crate::message::{BaseResponse, EventPacket, MessageEvent};
+use crate::message::{BaseResponse, EventPacket};
 use crate::model::SendGroupMessageResponse;
-use crate::{response, HttpResult, Mirai};
+use crate::{HttpResult, Mirai};
 
-use serde_json::{json, Value};
+use serde_json::json;
 use std::collections::HashMap;
 
 pub struct MiraiHttp {
@@ -52,7 +52,6 @@ impl MiraiHttp {
             "group": group,
             "messageChain": message_chain
         });
-        let client = reqwest::Client::new();
         // let mut data = HashMap::new();
         // data.insert("verifyKey", self.verify_key.as_str());
 

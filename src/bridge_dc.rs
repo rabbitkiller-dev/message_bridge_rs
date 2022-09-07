@@ -1,10 +1,11 @@
 use crate::bridge_log;
 use crate::{bridge, Config};
-use std::ops::Add;
-use std::sync::{Arc, Mutex};
+use std::path::Path;
+use std::sync::Arc;
 
 use serenity::async_trait;
 use serenity::http::Http;
+use serenity::model::channel::AttachmentType;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::model::webhook::Webhook;
@@ -39,8 +40,19 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
                 let mut content: Vec<&str> = Vec::new();
                 for chain in &message.message_chain {
                     match chain {
-                        bridge::MessageContent::Plain { text } => &content.push(text),
-                        _ => &content.push("{无法识别的MessageChain}"),
+                        bridge::MessageContent::Plain { text } => content.push(text),
+                        bridge::MessageContent::Image { url, path } => {
+                            if let Some(path) = path {
+                                let path = Path::new(path);
+                                w.add_file(AttachmentType::Path(path));
+                                continue;
+                            }
+                            if let Some(url) = url {
+                                let url = url::Url::parse(url).unwrap();
+                                w.add_file(AttachmentType::Image(url));
+                            }
+                        }
+                        _ => content.push("{无法识别的MessageChain}"),
                     };
                 }
                 if content.len() == 0 {
@@ -49,7 +61,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
                 w.content(content.join(""))
             })
             .await
-            .expect("Could not execute webhook.");
+            .expect("[bridge_dc] Could not execute webhook.");
     }
 }
 
@@ -70,10 +82,10 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
 
     println!("dc2");
     tokio::select! {
-        val = client.start() => {
+        _ = client.start() => {
             println!("xxxxxx");
         },
-        val = dc(bridge.clone()) => {},
+        _ = dc(bridge.clone()) => {},
     }
 }
 
@@ -146,7 +158,7 @@ impl EventHandler for Handler {
             .push(bridge::MessageContent::Plain {
                 text: msg.content.clone(),
             });
-        
+
         // skip cmd
         if msg.content.starts_with("!") {
             self.bridge.send_to("bridge_cmd_adapter", &bridge_message);

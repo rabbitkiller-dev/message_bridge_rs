@@ -1,11 +1,12 @@
 mod bridge;
+mod bridge_cmd;
 mod bridge_dc;
 mod bridge_log;
-mod bridge_cmd;
-mod cmd_adapter;
-mod bridge_save;
 mod bridge_qq;
+mod bridge_save;
+mod cmd_adapter;
 mod config;
+mod utils;
 
 use config::*;
 use std::sync::{Arc, Mutex};
