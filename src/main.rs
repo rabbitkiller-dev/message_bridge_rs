@@ -1,10 +1,10 @@
 mod bridge;
 mod bridge_dc;
-mod bridge_qq;
 mod bridge_log;
 mod bridge_cmd;
 mod cmd_adapter;
 mod bridge_save;
+mod bridge_qq;
 mod config;
 
 use config::*;
@@ -70,6 +70,6 @@ mod test {
     }
 }
 
-
-// mod test_dc2;
 mod test_mirai;
+mod test_regex;
+mod test_reqwest;

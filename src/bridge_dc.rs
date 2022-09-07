@@ -29,6 +29,13 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
 
         webhook
             .execute(&http, false, |w| {
+                // 配置发送者头像
+                if let Some(url) = message.user.avatar_url {
+                    w.avatar_url(url.as_str());
+                }
+                // 配置发送者用户名
+                w.username(message.user.name);
+
                 let mut content: Vec<&str> = Vec::new();
                 for chain in &message.message_chain {
                     match chain {
@@ -39,7 +46,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
                 if content.len() == 0 {
                     content.push("{本次发送的消息没有内容}");
                 }
-                w.content(content.join("")).username(message.user.name)
+                w.content(content.join(""))
             })
             .await
             .expect("Could not execute webhook.");
@@ -104,9 +111,18 @@ impl EventHandler for Handler {
                 return;
             }
         };
-        let user = bridge::User {
+        let mut user = bridge::User {
             name: format!("[DC] {}#{}", msg.author.name, msg.author.discriminator),
+            avatar_url: None,
         };
+        if let Some(url) = msg.author.avatar_url() {
+            println!("[bridge_dc] avatar_url: {:?}", url);
+            user.avatar_url = Some(url.replace(".webp?size=1024", ".png?size=40").to_string());
+        }
+        // println!(
+        //     "msg.author.default_avatar_url(){:?}",
+        //     msg.author.static_avatar_url()
+        // );
 
         bridge_log::BridgeLog::write_log(
             format!(
