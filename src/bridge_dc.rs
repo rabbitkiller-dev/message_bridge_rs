@@ -146,6 +146,13 @@ impl EventHandler for Handler {
             .push(bridge::MessageContent::Plain {
                 text: msg.content.clone(),
             });
+        
+        // skip cmd
+        if msg.content.starts_with("!") {
+            self.bridge.send_to("bridge_cmd_adapter", &bridge_message);
+            // return;
+        }
+
         self.bridge.send(bridge_message);
         if msg.content == "!hello" {
             // The create message builder allows you to easily create embeds and messages
