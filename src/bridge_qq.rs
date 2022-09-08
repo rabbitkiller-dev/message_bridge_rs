@@ -35,6 +35,14 @@ pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai
                 bridge::MessageContent::Plain { text } => {
                     message_chain.push(MessageContent::Plain { text: text.clone() })
                 }
+                bridge::MessageContent::Image { url, path: _ } => {
+                    message_chain.push(MessageContent::Image {
+                        image_id: None,
+                        url: url.clone(),
+                        path: None,
+                        base64: None,
+                    });
+                }
                 _ => message_chain.push(MessageContent::Plain {
                     text: "{无法识别的MessageChain}".to_string(),
                 }),
@@ -123,10 +131,11 @@ impl EventHandler for MiraiBridgeHandler {
             }
             for chain in &group_message.message_chain {
                 match chain {
+                        MessageContent::Source { id: _, time: _ } => {}
                         MessageContent::Plain { text } => {
                             bridge_message.message_chain.push(bridge::MessageContent::Plain { text: text.to_string() })
                         }
-                        MessageContent::Image { image_id, url, path, base64 } => {
+                        MessageContent::Image { image_id: _, url, path: _, base64: _ } => {
                             if let Some(url) = url {
                                 let file_path = match crate::utils::download_and_cache(url).await {
                                     Ok(path) => {
@@ -145,13 +154,11 @@ impl EventHandler for MiraiBridgeHandler {
                         _ => {
                             bridge_message.message_chain.push(bridge::MessageContent::Plain { text: "{没有处理qq的MessageChain}".to_string() })
                         }
-                        // MessageContent::Source { id, time } => todo!(),
                         // MessageContent::Quote { id, group_id, sender_id, target_id, origin } => todo!(),
                         // MessageContent::At { target, display } => todo!(),
                         // MessageContent::AtAll {  } => todo!(),
                         // MessageContent::Face { face_id, name } => todo!(),
                         // MessageContent::Plain { text } => todo!(),
-                        // MessageContent::Image { image_id, url, path, base64 } => todo!(),
                         // MessageContent::FlashImage { image_id, url, path, base64 } => todo!(),
                         // MessageContent::Voice { voice_id, url, path, base64, length } => todo!(),
                         // MessageContent::Xml { xml } => todo!(),

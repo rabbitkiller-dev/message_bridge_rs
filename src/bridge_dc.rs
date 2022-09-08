@@ -158,6 +158,15 @@ impl EventHandler for Handler {
             .push(bridge::MessageContent::Plain {
                 text: msg.content.clone(),
             });
+        // 将附件一股脑的放进图片里面 TODO: 以后在区分非图片的附件
+        for attachment in msg.attachments {
+            bridge_message
+                .message_chain
+                .push(bridge::MessageContent::Image {
+                    url: Some(attachment.url),
+                    path: None,
+                });
+        }
 
         // skip cmd
         if msg.content.starts_with("!") {
