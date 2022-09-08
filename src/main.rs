@@ -71,6 +71,4 @@ mod test {
     }
 }
 
-
-// mod test_dc2;
 mod test_mirai;
