@@ -11,6 +11,7 @@ use serenity::model::gateway::Ready;
 use serenity::model::webhook::Webhook;
 use serenity::model::Timestamp;
 use serenity::prelude::*;
+use crate::bridge::BridgeClientPlatform;
 
 /**
 *
@@ -111,13 +112,13 @@ impl EventHandler for Handler {
         {
             return;
         };
-        let bridgeConfig = match self
+        let bridge_config = match self
             .config
             .bridges
             .iter()
             .find(|bridge| msg.channel_id == bridge.discord.channelId && bridge.enable)
         {
-            Some(bridgeConfig) => bridgeConfig,
+            Some(c) => c,
             None => {
                 // 该消息的频道没有配置桥, 忽略这个消息
                 return;
@@ -126,10 +127,17 @@ impl EventHandler for Handler {
         let mut user = bridge::User {
             name: format!("[DC] {}#{}", msg.author.name, msg.author.discriminator),
             avatar_url: None,
+            platform_id: 0,
+            unique_id: msg.author.id.0,
+            display_id: msg.author.discriminator,
+            platform: BridgeClientPlatform::Discord,
         };
         if let Some(url) = msg.author.avatar_url() {
             println!("[bridge_dc] avatar_url: {:?}", url);
             user.avatar_url = Some(url.replace(".webp?size=1024", ".png?size=40").to_string());
+        }
+        if let Some(gid) = msg.guild_id {
+            user.platform_id = gid.0
         }
         // println!(
         //     "msg.author.default_avatar_url(){:?}",
@@ -146,12 +154,12 @@ impl EventHandler for Handler {
             .as_str(),
         );
 
-        let sender = self.bridge.sender.clone();
+        // let sender = self.bridge.sender.clone();
 
         let mut bridge_message = bridge::BridgeMessage {
-            bridge_config: bridgeConfig.clone(),
+            bridge_config: bridge_config.clone(),
             message_chain: Vec::new(),
-            user: user,
+            user,
         };
         bridge_message
             .message_chain

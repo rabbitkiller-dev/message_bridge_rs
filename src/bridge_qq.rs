@@ -4,6 +4,8 @@ use mirai_rs::message::{GroupMessage, MessageChain, MessageContent};
 use mirai_rs::EventHandler;
 use mirai_rs::Mirai;
 use std::sync::{Arc, Mutex};
+use crate::bridge::BridgeClientPlatform;
+
 pub struct MiraiBridgeHandler {
     pub config: Arc<Config>,
     pub bridge: Arc<bridge::BridgeClient>,
@@ -110,6 +112,10 @@ impl EventHandler for MiraiBridgeHandler {
                     "https://q1.qlogo.cn/g?b=qq&nk={}&s=100",
                     group_message.sender.id
                 )),
+                unique_id: group_message.sender.id,
+                platform: BridgeClientPlatform::QQ,
+                display_id: group_message.sender.id as u16,
+                platform_id: group_message.sender.group.id,
             };
 
             let mut bridge_message = bridge::BridgeMessage {

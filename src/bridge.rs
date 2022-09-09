@@ -7,10 +7,11 @@ use serde::Serialize;
 use tokio::sync::broadcast;
 
 /// 客户端所属平台
-#[derive(PartialEq, Eq, Debug)]
+#[repr(u64)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum BridgeClientPlatform {
-    Discord,
-    QQ,
+    Discord = 1 << 0,
+    QQ = 1 << 1,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,23 +20,7 @@ pub struct BridgeMessage {
     pub message_chain: MessageChain,
     pub user: User,
 }
-impl BridgeMessage {
-    /// 识别消息来自哪个平台
-    pub fn from_platform(&self) -> Option<BridgeClientPlatform> {
-        let user = &self.user.name;
-        if user.is_empty() || user.len() < 3 {
-            return None;
-        }
-        let p = match &user[1..3] {
-            "DC" => BridgeClientPlatform::Discord,
-            "QQ" => BridgeClientPlatform::QQ,
-            _ => {
-                return None;
-            }
-        };
-        Some(p)
-    }
-}
+impl BridgeMessage {}
 
 pub type MessageChain = Vec<MessageContent>;
 
@@ -54,6 +39,10 @@ pub enum MessageContent {
 pub struct User {
     pub name: String,
     pub avatar_url: Option<String>,
+    pub unique_id: u64,
+    pub display_id: u16,
+    pub platform_id: u64,
+    pub platform: BridgeClientPlatform,
 }
 
 pub struct BridgeService {
