@@ -1,71 +1,103 @@
-
-use std::io::{Read, Write};
 use std::fs::OpenOptions;
-use std::collections::HashMap;
+use std::io::{Read, Write};
+
 use serde_json::{from_str, to_string};
 
-const BIND_MAP_PATH: &str = "./data/BindMap.json";
+use crate::bridge::User;
 
 /// 绑定映射
 pub mod bind_map {
     use crate::bridge_data::*;
 
+    type BindKey = (u64, u64);
+    type BindData = Vec<(BindKey, BindKey)>;
+
+    const BIND_MAP_PATH: &str = "./data/BindMap.json";
+
     /// 尝试获取映射
-    /// - `user` 目标用户；桥内通用的 user name
-    pub fn get_bind(user: &str) -> Option<String> {
-        let map = load();
-        if let Some(u) = map.get(user) {
-            return Some(u.clone());
+    /// - `user` 目标用户
+    pub fn get_bind(user: &User) -> Option<u64> {
+        let pp = user.platform as u64;
+        let data = load();
+
+        for ((p1, u1), (p2, u2)) in data.iter() {
+            if (p1 | p2) & pp > 0 {
+                if *u1 == user.unique_id {
+                    return Some(*u2);
+                }
+                if *u2 == user.unique_id {
+                    return Some(*u1);
+                }
+            }
         }
         None
     }
 
     /// 添加映射
-    /// - `user1`, `user2` 一对映射；桥内通用的 user name
-    pub fn add_bind(user1: &str, user2: &str) {
-        let mut map = load();
-        let len = map.len();
+    /// - `user1`, `user2` 一对映射
+    pub fn add_bind(user1: &User, user2: &User) {
+        let p = (user1.platform as u64, user2.platform as u64);
+        let mut data = load();
+        let mut add = true;
+        let pp = p.0 | p.1;
 
-        if !map.contains_key(user1) {
-            map.insert(user1.to_string(), user2.to_string());
-        }
-        if !map.contains_key(user2) {
-            map.insert(user2.to_string(), user1.to_string());
+        for ((p1, u1), (p2, u2)) in data.iter() {
+            if (p1 | p2) == pp {
+                if (*u1 == user1.unique_id && *u2 == user2.unique_id) ||
+                    (*u2 == user1.unique_id && *u1 == user2.unique_id) {
+                    add = false;
+                    break;
+                }
+            }
         }
 
-        if len < map.len() {
-            save(&map);
+        if add {
+            data.push(((p.0, user1.unique_id), (p.1, user2.unique_id)));
+            save(&data)
         }
     }
 
     /// 指定一对用户删除映射
-    /// - `user1`, `user2` 一对映射；移除映射需成对操作；桥内通用的 user name
-    pub fn rm_bind_pair(user1: &str, user2: &str) {
-        let mut map = load();
-        let len = map.len();
+    /// - `user1`, `user2` 一对映射；移除映射需成对操作
+    pub fn rm_bind_pair(user1: &User, user2: &User) {
+        let mut data = load();
+        let len = data.len();
+        let pp = user1.platform as u64 | user2.platform as u64;
 
-        map.retain(|u1, u2|
-            !((u1 == user1 && u2 == user2) || (u1 == user2 && u2 == user1)));
-        if len > map.len() {
-            save(&map);
+        data.retain(|((p1, u1), (p2, u2))| {
+            if (p1 | p2) == pp {
+                !((*u1 == user1.unique_id && *u2 == user2.unique_id) ||
+                    (*u1 == user2.unique_id && *u2 == user1.unique_id))
+            } else {
+                true
+            }
+        });
+        if len > data.len() {
+            save(&data);
         }
     }
 
     /// 指定用户删除其所有关联映射
-    /// - `user` 目标用户；桥内通用的 user name
-    pub fn rm_user_all_bind(user: &str) {
-        let mut map = load();
-        let len = map.len();
+    /// - `user` 目标用户
+    pub fn rm_user_all_bind(user: &User) {
+        let mut data = load();
+        let len = data.len();
+        let p = user.platform as u64;
 
-        map.retain(|u1, u2| !(u1 == user || u2 == user));
-        if len > map.len() {
-            save(&map);
+        data.retain(|((p1, u1), (p2, u2))|
+            if (p1 | p2) & p > 0 {
+                !(*u1 == user.unique_id || *u2 == user.unique_id)
+            } else {
+                true
+            });
+        if len > data.len() {
+            save(&data);
         }
     }
 
     /// 读取，加载本地数据
     /// TODO 构建上下文，减少侵入
-    fn load() -> HashMap<String, String> {
+    fn load() -> BindData {
         let mut json = String::new();
         let file = OpenOptions::new()
             .read(true)
@@ -82,19 +114,21 @@ pub mod bind_map {
         };
 
         if !json.is_empty() {
-            match from_str(&json.as_str()) {
-                Ok(map) => {
-                    return map;
+            match from_str::<BindData>(&json.as_str()) {
+                Ok(mut data) => {
+                    // 删除无平台映射
+                    data.retain(|((p1, _), (p2, _))| *p1 > 0 && *p2 > 0);
+                    return data;
                 }
                 Err(e) => println!("BindMap load fail, data can not be parsed; {:#?}", e),
             }
         }
-        HashMap::new()
+        BindData::new()
     }
 
     /// 数据写入本地
     /// TODO 异步读写
-    fn save(data: &HashMap<String, String>) {
+    fn save(data: &BindData) {
         let raw: String;
         match to_string(data) {
             Ok(json) => {
@@ -124,80 +158,120 @@ pub mod bind_map {
     #[cfg(test)]
     mod ts_bind_map {
         use chrono::Local;
-        use serde_json::json;
+
+        use crate::bridge::{BridgeClientPlatform, User};
         use crate::bridge_data::bind_map::*;
 
         #[test]
         fn add() {
+            let uls = get_users();
             let st = Local::now().timestamp_millis();
-            add_bind("dong", "6uopdong");
-            add_bind("abc", "123");
-            add_bind("aaa", "bbb");
-            add_bind("ccc", "aaa");
-            add_bind("ddd", "bbb");
+            add_bind(&uls[0], &uls[1]);
+            add_bind(&uls[2], &uls[3]);
+            add_bind(&uls[4], &uls[1]);
+            add_bind(&uls[5], &uls[2]);
             let et = Local::now().timestamp_millis();
-            println!("{} - {} = {}", et, st, et - st);
+            println!("add 4 mapping: {}ms", et - st);
         }
 
         #[test]
         fn get() {
+            let u1 = User {
+                name: "".to_string(),
+                avatar_url: None,
+                unique_id: 111_111,
+                display_id: 111,
+                platform_id: 111,
+                platform: BridgeClientPlatform::Discord,
+            };
+            let u2 = User {
+                name: "".to_string(),
+                avatar_url: None,
+                unique_id: 0,
+                display_id: 0,
+                platform_id: 0,
+                platform: BridgeClientPlatform::QQ,
+            };
             let st = Local::now().timestamp_millis();
-            let u1 = "dong";
-            match get_bind(u1) {
-                None => println!("{} no mapping", u1),
-                Some(u2) => println!("{} map to {}", u1, u2),
+            match get_bind(&u1) {
+                None => println!("{} no mapping", u1.unique_id),
+                Some(u2) => println!("{} map to {}", u1.unique_id, u2),
             }
-
-            let u1 = "111";
-            match get_bind(u1) {
-                None => println!("{} no mapping user", u1),
-                Some(u2) => println!("{} map to {}", u1, u2),
+            match get_bind(&u2) {
+                None => println!("{} no mapping user", u2.unique_id),
+                Some(u3) => println!("{} map to {}", u2.unique_id, u3),
             }
             let et = Local::now().timestamp_millis();
-            println!("{} - {} = {}", et, st, et - st);
+            println!("get 2 mapping: {}ms", et - st);
         }
 
         #[test]
         fn rm() {
-            rm_bind_pair("abc", "123");
-            rm_bind_pair("aaa", "bbb");
+            let uls = get_users();
+            rm_bind_pair(&uls[0], &uls[1]);
+            rm_bind_pair(&uls[2], &uls[3]);
         }
 
         #[test]
         fn rm_all() {
-            rm_user_all_bind("aaa");
+            let uls = get_users();
+            rm_user_all_bind(&uls[1]);
         }
 
-        #[test]
-        fn open_file() {
-            {// truncate, but do not write
-                let file = OpenOptions::new()
-                    .truncate(true)
-                    .write(true)
-                    .create(true)
-                    .open(BIND_MAP_PATH);
-                match file {
-                    Ok(_) => println!("Open file success."),
-                    Err(e) => println!("Can not open/create data file({}); {:#?}", BIND_MAP_PATH, e),
-                };
+        fn get_users() -> Vec<User> {
+            fn emp() -> String {
+                "".to_string()
             }
-            // try read context
-            let file = OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .open(BIND_MAP_PATH);
-            match file {
-                Ok(mut f) => {
-                    let mut json = String::new();
-                    match f.read_to_string(&mut json) {
-                        Ok(_) => println!("context: {}", json),
-                        Err(e) => println!("Can not read file({}); {:#?}", BIND_MAP_PATH, e),
-                    }
-                }
-                Err(e) => println!("Can not open/create data file({}); {:#?}", BIND_MAP_PATH, e),
-            };
+            vec![
+                User {
+                    name: emp(),
+                    avatar_url: None,
+                    unique_id: 111_111,
+                    display_id: 111,
+                    platform_id: 111,
+                    platform: BridgeClientPlatform::Discord,
+                },
+                User {
+                    name: emp(),
+                    avatar_url: None,
+                    unique_id: 222_222,
+                    display_id: 222,
+                    platform_id: 222,
+                    platform: BridgeClientPlatform::QQ,
+                },
+                User {
+                    name: emp(),
+                    avatar_url: None,
+                    unique_id: 333_333,
+                    display_id: 333,
+                    platform_id: 333,
+                    platform: BridgeClientPlatform::Discord,
+                },
+                User {
+                    name: emp(),
+                    avatar_url: None,
+                    unique_id: 444_444,
+                    display_id: 444,
+                    platform_id: 444,
+                    platform: BridgeClientPlatform::QQ,
+                },
+                User {
+                    name: emp(),
+                    avatar_url: None,
+                    unique_id: 555_555,
+                    display_id: 555,
+                    platform_id: 555,
+                    platform: BridgeClientPlatform::Discord,
+                },
+                User {
+                    name: emp(),
+                    avatar_url: None,
+                    unique_id: 666_666,
+                    display_id: 666,
+                    platform_id: 666,
+                    platform: BridgeClientPlatform::Discord,
+                },
+            ]
         }
-
     }
 }
