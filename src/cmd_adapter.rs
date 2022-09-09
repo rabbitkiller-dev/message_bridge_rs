@@ -1,12 +1,11 @@
-///! 接收，处理用户指令
 use std::sync::Arc;
 
 use chrono::Local;
 
 use crate::{bridge, Config};
 use crate::bridge::{BridgeMessage, MessageChain, MessageContent};
+use crate::bridge_cmd::{CmdMeta, kind};
 use crate::bridge_cmd::Cmd::*;
-use crate::bridge_cmd::{kind, CmdMeta};
 
 type CacheBind = Vec<(i64, CmdMeta)>;
 
@@ -41,14 +40,16 @@ pub async fn start(_config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
 /// - sign 指令内容
 /// - cache 缓存集合
 fn check_bind(input: &BridgeMessage, caches: &mut CacheBind) {
-    // TODO 检查权限
-    let in_platform = match input.from_platform() {
-        Some(p) => p,
-        _ => { return; }
-    };
-
+    // TODO 检查指令格式
+    // TODO 防过量请求，避免缓存爆炸
     let in_plain = plain_token(&input.message_chain);
+    // TODO 解析指令，提取参数
+    // TODO 获取绑定平台的id，查询映射
+    // if is_bound(&input.user, ()) {
+    //     return;
+    // }
     let now = Local::now().timestamp_millis();
+    let mut is_mapping = false;
     let mut add_cache = true;
     caches.retain(|(t, m)| {
         // 剔除超时缓存
@@ -57,29 +58,35 @@ fn check_bind(input: &BridgeMessage, caches: &mut CacheBind) {
         }
 
         let cache_plain = plain_token(&m.token_chain);
-        // TODO 检查指令格式
         // 检查重复
         if in_plain == cache_plain {
             add_cache = false;
             return true;
         }
 
-        // TODO 检查映射
         // 尝试匹配
-        if cache_plain.contains(&input.user.name) && in_platform != m.platform {
-            // TODO 建立映射
-            println!("\t\t{}\n\t\t\t匹配\n\t\t{}", in_plain, cache_plain);
+        // TODO 从指令中获得映射用户，而不是取发送者
+        if cache_plain.contains(&input.user.name) && input.user.platform != m.operator.platform {
+            println!("{} bind to {}", &input.user.name, &m.operator.name);
+            is_mapping = true;
             add_cache = false;
             return false;
         }
 
         true
     });
+    // TODO 通过用户id获取dc伺服器和q群的信息
+    if is_mapping {
+        // TODO 验证映射用户信息有效
+        // bind_mapping(&input.user, &m.operator);
+        return;
+    }
     if add_cache {
+        // TODO 检查权限
+        // TODO 提醒用户注意超时
         let meta = CmdMeta {
             token_chain: input.message_chain.clone(),
             operator: input.user.clone(),
-            platform: in_platform,
         };
         println!("cache bind-cmd {:?}", meta);
         caches.push((now, meta));
@@ -88,7 +95,7 @@ fn check_bind(input: &BridgeMessage, caches: &mut CacheBind) {
 }
 
 /// 取指令文本
-/// - token_chain 指令内容
+/// - `token_chain` 指令内容
 fn plain_token(token_chain: &MessageChain) -> String {
     let mut plain = String::new();
     for token in token_chain {
@@ -96,7 +103,7 @@ fn plain_token(token_chain: &MessageChain) -> String {
             MessageContent::Plain { text } => {
                 plain += text
             }
-            _ => {},
+            _ => {}
         }
     }
     plain

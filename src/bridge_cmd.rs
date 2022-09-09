@@ -1,6 +1,4 @@
-///! 用户指令的实现
-
-use crate::bridge::{MessageChain, MessageContent, User, BridgeClientPlatform};
+use crate::bridge::{MessageChain, MessageContent, User};
 use crate::bridge_cmd::Cmd::Bind;
 
 /// 指令
@@ -10,8 +8,6 @@ pub struct CmdMeta {
     pub operator: User,
     /// 指令文本链
     pub token_chain: MessageChain,
-    /// 指定客户端平台
-    pub platform: BridgeClientPlatform,
 }
 
 /// 指令类别
