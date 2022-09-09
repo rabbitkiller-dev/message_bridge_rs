@@ -3,6 +3,7 @@ use crate::{bridge, Config};
 use std::path::Path;
 use std::sync::Arc;
 
+use crate::bridge::BridgeClientPlatform;
 use serenity::async_trait;
 use serenity::http::Http;
 use serenity::model::channel::AttachmentType;
@@ -11,7 +12,6 @@ use serenity::model::gateway::Ready;
 use serenity::model::webhook::Webhook;
 use serenity::model::Timestamp;
 use serenity::prelude::*;
-use crate::bridge::BridgeClientPlatform;
 
 /**
 *

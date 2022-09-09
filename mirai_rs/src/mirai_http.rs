@@ -1,5 +1,7 @@
+use crate::message::EventPacket;
 use crate::message::MessageChain;
-use crate::message::{BaseResponse, EventPacket};
+use crate::model::group::Member;
+use crate::model::BaseResponse;
 use crate::model::SendGroupMessageResponse;
 use crate::{HttpResult, Mirai};
 
@@ -42,6 +44,7 @@ impl MiraiHttp {
 
         Ok(resp)
     }
+
     pub async fn send_group_message(
         &self,
         message_chain: MessageChain,
@@ -75,6 +78,64 @@ impl MiraiHttp {
             Ok(resp) => resp,
             Err(err) => {
                 println!("[mirai_http] send_group_message转换json失败");
+                println!("[mirai_http] {:?}", resp);
+                println!("[mirai_http] {:?}", err);
+                Result::Err(err)?
+            }
+        };
+
+        Ok(resp)
+    }
+
+    pub async fn member_list(&self, target: u64) -> HttpResult<BaseResponse<Vec<Member>>> {
+        let path = format!(
+            "/memberList?sessionKey={}&target={}",
+            &self.session_key, target
+        );
+
+        let response = match self.req.get(self.get_url(path.as_str())).send().await {
+            Ok(resp) => resp,
+            Err(err) => {
+                println!("[mirai_http] member_list请求失败");
+                println!("[mirai_http] {:?}", err);
+                Result::Err(err)?
+            }
+        };
+        println!("[mirai_http] member_list {}", response.status());
+        let resp = response.text().await.unwrap();
+        let resp: BaseResponse<Vec<Member>> = match serde_json::from_str(resp.as_str()) {
+            Ok(resp) => resp,
+            Err(err) => {
+                println!("[mirai_http] member_list转换json失败");
+                println!("[mirai_http] {:?}", resp);
+                println!("[mirai_http] {:?}", err);
+                Result::Err(err)?
+            }
+        };
+
+        Ok(resp)
+    }
+
+    pub async fn get_member_info(&self, target: u64, member_id: u64) -> HttpResult<Member> {
+        let path = format!(
+            "/memberInfo?sessionKey={}&target={}&memberId={}",
+            &self.session_key, target, member_id
+        );
+
+        let response = match self.req.get(self.get_url(path.as_str())).send().await {
+            Ok(resp) => resp,
+            Err(err) => {
+                println!("[mirai_http] get_member_info请求失败");
+                println!("[mirai_http] {:?}", err);
+                Result::Err(err)?
+            }
+        };
+        println!("[mirai_http] get_member_info {}", response.status());
+        let resp = response.text().await.unwrap();
+        let resp: Member = match serde_json::from_str(resp.as_str()) {
+            Ok(resp) => resp,
+            Err(err) => {
+                println!("[mirai_http] get_member_info转换json失败");
                 println!("[mirai_http] {:?}", resp);
                 println!("[mirai_http] {:?}", err);
                 Result::Err(err)?

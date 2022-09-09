@@ -72,6 +72,7 @@ mod test {
     }
 }
 
+mod test_dc;
 mod test_mirai;
 mod test_regex;
 mod test_reqwest;

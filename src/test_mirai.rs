@@ -1,6 +1,6 @@
 use crate::Config;
 use mirai_rs::api::MessageEvent;
-use mirai_rs::message::{GroupMessage, MessageChain, MessageContent};
+use mirai_rs::message::{MessageChain, MessageContent};
 use mirai_rs::EventHandler;
 use mirai_rs::Mirai;
 
@@ -41,6 +41,52 @@ fn test_mirai_send_group_message() {
                 .send_group_message(message_chian, 518986671)
                 .await
                 .unwrap();
+            println!("请求成功");
+            println!("{:?}", result);
+        })
+}
+
+#[test]
+fn test_mirai_get_group_user() {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let config = Arc::new(Config::new());
+            let mut mirai = Mirai::builder(
+                &config.miraiConfig.host,
+                config.miraiConfig.port,
+                &config.miraiConfig.verifyKey,
+            )
+            .bind_qq(3245538509)
+            .event_handler(MiraiBridgeHandler)
+            .await;
+            let http = mirai.get_http().await;
+            let result = http.get_member_info(518986671, 243249439).await.unwrap();
+            println!("请求成功");
+            println!("{:?}", result);
+        })
+}
+
+#[test]
+fn test_mirai_get_group_all_user() {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let config = Arc::new(Config::new());
+            let mut mirai = Mirai::builder(
+                &config.miraiConfig.host,
+                config.miraiConfig.port,
+                &config.miraiConfig.verifyKey,
+            )
+            .bind_qq(3245538509)
+            .event_handler(MiraiBridgeHandler)
+            .await;
+            let http = mirai.get_http().await;
+            let result = http.member_list(518986671).await.unwrap();
             println!("请求成功");
             println!("{:?}", result);
         })

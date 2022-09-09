@@ -2,16 +2,9 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::model::group::{GroupMessage, GroupSender};
 use crate::Target;
-/**
- * 基础响应格式
- */
-#[derive(Debug, Serialize, Deserialize)]
-pub struct BaseResponse<T> {
-    pub code: u16,
-    pub msg: String,
-    pub data: T,
-}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum EventPacket {
@@ -23,6 +16,25 @@ pub enum EventPacket {
     Unsupported(Value),
 }
 
+pub mod sender {
+    use crate::Target;
+    use serde::Deserialize;
+    use serde::Serialize;
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct FriendSender {
+        pub id: Target,
+        pub nickname: String,
+        pub remark: String,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct OtherClientSender {
+        pub id: Target,
+        pub platform: String,
+    }
+}
+
 // #[serde(flatten)]
 // extra: std::collections::HashMap<String, Value>,
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,7 +44,7 @@ pub enum MessageEvent {
     TempMessage {
         #[serde(rename = "messageChain")]
         message_chain: MessageChain,
-        sender: sender::GroupSender,
+        sender: GroupSender,
     },
     FriendMessage {
         #[serde(rename = "messageChain")]
@@ -49,75 +61,6 @@ pub enum MessageEvent {
         message_chain: MessageChain,
         sender: sender::OtherClientSender,
     },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GroupMessage {
-    #[serde(rename = "messageChain")]
-    pub message_chain: MessageChain,
-    pub sender: sender::GroupSender,
-}
-
-mod sender {
-    use crate::Target;
-    use serde::Deserialize;
-    use serde::Serialize;
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct FriendSender {
-        pub id: Target,
-        pub nickname: String,
-        pub remark: String,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub enum Permission {
-        #[serde(rename = "ADMINISTRATOR")]
-        Administrator,
-
-        #[serde(rename = "OWNER")]
-        Owner,
-
-        #[serde(rename = "MEMBER")]
-        Member,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct GroupSender {
-        pub id: Target,
-
-        #[serde(rename = "memberName")]
-        pub member_name: String,
-
-        #[serde(rename = "specialTitle")]
-        pub special_title: String,
-
-        pub permission: Permission,
-
-        #[serde(rename = "joinTimestamp")]
-        pub join_timestamp: u64,
-
-        #[serde(rename = "lastSpeakTimestamp")]
-        pub last_speak_timestamp: u64,
-
-        #[serde(rename = "muteTimeRemaining")]
-        pub mute_time_remaining: u64,
-
-        pub group: Group,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct Group {
-        pub id: Target,
-        pub name: String,
-        pub permission: Permission,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct OtherClientSender {
-        pub id: Target,
-        pub platform: String,
-    }
 }
 
 pub type MessageChain = Vec<MessageContent>;

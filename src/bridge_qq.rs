@@ -1,10 +1,10 @@
+use crate::bridge::BridgeClientPlatform;
 use crate::{bridge, Config};
 use mirai_rs::api::MessageEvent;
-use mirai_rs::message::{GroupMessage, MessageChain, MessageContent};
+use mirai_rs::message::{MessageChain, MessageContent};
 use mirai_rs::EventHandler;
 use mirai_rs::Mirai;
-use std::sync::{Arc, Mutex};
-use crate::bridge::BridgeClientPlatform;
+use std::sync::Arc;
 
 pub struct MiraiBridgeHandler {
     pub config: Arc<Config>,

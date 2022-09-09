@@ -6,7 +6,8 @@ pub mod response;
 
 pub use async_trait::async_trait;
 use core::panic;
-use message::{BaseResponse, EventPacket, MessageEvent};
+use message::{EventPacket, MessageEvent};
+use model::BaseResponse;
 use response::{AboutResponse, BindResponse, VerifyResponse};
 use serde_json::{json, Value};
 use std::collections::HashMap;
