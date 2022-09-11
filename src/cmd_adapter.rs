@@ -1,19 +1,24 @@
+///! 接收桥收到的用户指令，加以识别和响应
+
 use std::sync::Arc;
 
 use chrono::Local;
 
-use crate::{bridge, Config};
-use crate::bridge::{BridgeMessage, MessageChain, MessageContent};
-use crate::bridge_cmd::{CmdMeta, kind};
-use crate::bridge_cmd::Cmd::*;
+use bridge_cmd::bind_meta::BindMeta;
+use bridge_cmd::Cmd;
+use Cmd::*;
 
-type CacheBind = Vec<(i64, CmdMeta)>;
+use crate::{bridge_cmd, Config};
+use crate::bridge::{BridgeClient, BridgeClientPlatform, BridgeMessage, MessageChain, MessageContent, User};
+use crate::bridge_data::bind_map::{add_bind, get_bind};
+
+type CacheBind = Vec<(i64, BindMeta)>;
 
 /// 缓存超时（毫秒）
 const CACHE_TIMEOUT: i64 = 30_000;
 
 /// 持续接收指令消息
-pub async fn cmd(bridge: Arc<bridge::BridgeClient>) {
+pub async fn cmd(bridge: Arc<BridgeClient>) {
     // cache token - bind cmd
     let mut cache_bind: CacheBind = Vec::with_capacity(1024);
     let mut rx = bridge.sender.subscribe();
@@ -21,76 +26,18 @@ pub async fn cmd(bridge: Arc<bridge::BridgeClient>) {
     loop {
         let sign = rx.recv().await.unwrap();
         // match cmd
-        if let Some(cmd) = kind(&sign.message_chain) {
+        if let Some(cmd) = bridge_cmd::kind(&sign.message_chain) {
             match cmd {
-                Bind => check_bind(&sign, &mut cache_bind),
+                Bind => try_cache_bind(&sign, &mut cache_bind),
             } // match cmd kind
         }
     } // loop
 }
 
 /// 开启频道
-pub async fn start(_config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
+pub async fn start(_config: Arc<Config>, bridge: Arc<BridgeClient>) {
     tokio::select! {
         _ = cmd(bridge.clone()) => {},
-    }
-}
-
-/// 检查绑定指令，尝试缓存
-/// - sign 指令内容
-/// - cache 缓存集合
-fn check_bind(input: &BridgeMessage, caches: &mut CacheBind) {
-    // TODO 检查指令格式
-    // TODO 防过量请求，避免缓存爆炸
-    let in_plain = plain_token(&input.message_chain);
-    // TODO 解析指令，提取参数
-    // TODO 获取绑定平台的id，查询映射
-    // if is_bound(&input.user, ()) {
-    //     return;
-    // }
-    let now = Local::now().timestamp_millis();
-    let mut is_mapping = false;
-    let mut add_cache = true;
-    caches.retain(|(t, m)| {
-        // 剔除超时缓存
-        if now - *t > CACHE_TIMEOUT {
-            return false;
-        }
-
-        let cache_plain = plain_token(&m.token_chain);
-        // 检查重复
-        if in_plain == cache_plain {
-            add_cache = false;
-            return true;
-        }
-
-        // 尝试匹配
-        // TODO 从指令中获得映射用户，而不是取发送者
-        if cache_plain.contains(&input.user.name) && input.user.platform != m.operator.platform {
-            println!("{} bind to {}", &input.user.name, &m.operator.name);
-            is_mapping = true;
-            add_cache = false;
-            return false;
-        }
-
-        true
-    });
-    // TODO 通过用户id获取dc伺服器和q群的信息
-    if is_mapping {
-        // TODO 验证映射用户信息有效
-        // bind_mapping(&input.user, &m.operator);
-        return;
-    }
-    if add_cache {
-        // TODO 检查权限
-        // TODO 提醒用户注意超时
-        let meta = CmdMeta {
-            token_chain: input.message_chain.clone(),
-            operator: input.user.clone(),
-        };
-        println!("cache bind-cmd {:?}", meta);
-        caches.push((now, meta));
-        println!("cache count {}", caches.len());
     }
 }
 
@@ -99,12 +46,108 @@ fn check_bind(input: &BridgeMessage, caches: &mut CacheBind) {
 fn plain_token(token_chain: &MessageChain) -> String {
     let mut plain = String::new();
     for token in token_chain {
-        match token {
-            MessageContent::Plain { text } => {
-                plain += text
-            }
-            _ => {}
+        if let MessageContent::Plain { text } = token {
+            plain += text
         }
     }
     plain
+}
+
+/// 解析绑定指令的参数
+/// - `args` 指令参数
+fn parse_bind_args(args: &Vec<String>) -> Option<(BridgeClientPlatform, u64)> {
+    let p: BridgeClientPlatform = match args[0].parse() {
+        Err(e) => {
+            println!("无法绑定未定义平台的账户。{}", e);
+            return None;
+        }
+        Ok(p) => p,
+    };
+    let u: u64 = match args[1].parse() {
+        Err(_) => {
+            println!("目前只支持纯数字id。");
+            return None;
+        }
+        Ok(p) => p,
+    };
+    Some((p, u))
+}
+
+/// 查询映射
+/// - `user` 请求者信息
+/// - `to` 指令参数：绑定的平台和用户id
+fn is_mapping(user: &User, to: (BridgeClientPlatform, u64)) -> bool {
+    if let Some(u) = get_bind(user, to.0) {
+        if u == to.1 {
+            println!("'{}' 已映射至 '{} {}'", user.name, to.0, to.1);
+            return true;
+        }
+    }
+    false
+}
+
+/// 检查绑定指令，尝试缓存
+/// - `sign` 指令内容
+/// - `cache` 缓存集合
+fn try_cache_bind(input: &BridgeMessage, caches: &mut CacheBind) {
+    // TODO 防过量请求，避免缓存爆炸
+    // TODO 检查权限
+    // 解析参数
+    let in_plain = plain_token(&input.message_chain);
+    let plain_args = Bind.get_args(&in_plain);
+    let bind_to: (BridgeClientPlatform, u64) = match parse_bind_args(&plain_args) {
+        None => { return; }
+        Some(a) => a,
+    };
+    // 查询映射
+    if is_mapping(&input.user, bind_to) {
+        return;
+    }
+
+    let new_meta = BindMeta::new((input.user.platform, input.user.unique_id), bind_to);
+    let now = Local::now().timestamp_millis();
+    let mut add_cache = true;
+    caches.retain(|(t, old_meta)| {
+        // 剔除超时缓存
+        if now - *t > CACHE_TIMEOUT {
+            return false;
+        }
+        // 检查重复
+        if new_meta == *old_meta {
+            add_cache = false;
+            return true;
+        }
+        true
+    });
+    if add_cache {
+        // TODO 提醒用户注意超时
+        println!("cache bind-cmd {:?}", new_meta);
+        caches.push((now, new_meta));
+        println!("cache count {}", caches.len());
+    }
+}
+
+/// 尝试建立映射
+/// - `user` 接受绑定的用户
+/// - `cache` 缓存集合
+fn try_bind(user: &User, caches: &mut CacheBind) {
+    let deadline = Local::now().timestamp_millis() - CACHE_TIMEOUT;
+    let mut opt: Option<BindMeta> = None;
+    caches.retain(|(t, m)| {
+        if *t < deadline {
+            return false;
+        }
+        if m.to.platform == user.platform && m.to.user == user.unique_id {
+            if opt == None {
+                opt = Some(*m);
+            }
+            return false;
+        }
+        true
+    });
+    if let Some(m) = opt {
+        // TODO 通过用户id获取dc伺服器和q群的信息
+        // TODO 验证映射用户信息有效
+        add_bind(&m.from.to_user(), user);
+    }
 }

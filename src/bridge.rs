@@ -1,17 +1,76 @@
-use crate::BridgeConfig;
-
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use serde::Deserialize;
 use serde::Serialize;
 use tokio::sync::broadcast;
 
+use crate::bridge::BridgeClientPlatform::*;
+use crate::BridgeConfig;
+
+/// 解析枚举文本错误
+pub struct ParseEnumErr(String);
+
+impl Display for ParseEnumErr {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "{}", self.0)
+    }
+}
+
 /// 客户端所属平台
-#[repr(u64)]
+/// # implement
+/// ## [`FromStr@from_str`]
+/// 凭借该特征可以将 str 解析为枚举
+/// ```
+/// println!("{:?}", "qq".parse::<BridgeClientPlatform>());
+/// ```
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize)]
+#[repr(u64)]
 pub enum BridgeClientPlatform {
     Discord = 1 << 0,
     QQ = 1 << 1,
+}
+
+impl Display for BridgeClientPlatform {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        let name = match self {
+            Discord => "DC",
+            QQ => "QQ",
+        };
+        write!(f, "{}", name)
+    }
+}
+
+impl FromStr for BridgeClientPlatform {
+    type Err = ParseEnumErr;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.eq_ignore_ascii_case("dc") {
+            Ok(Discord)
+        } else if s.eq_ignore_ascii_case("qq") {
+            Ok(QQ)
+        } else {
+            Err(ParseEnumErr(format!("平台'{}'未定义", s)))
+        }
+    }
+}
+
+#[cfg(test)]
+mod ts_bridge_client_platform {
+    use BCP::*;
+
+    use crate::bridge::BridgeClientPlatform as BCP;
+
+    #[test]
+    fn ts_display() {
+        println!("dc:{}, qq:{}", Discord, QQ)
+    }
+
+    #[test]
+    fn ts_parse() {
+        println!("parse 'qQ' to enum: {}", "qQ".parse::<BCP>().unwrap());
+        println!("parse 'Dc' to enum: {}", "Dc".parse::<BCP>().unwrap());
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,6 +79,7 @@ pub struct BridgeMessage {
     pub message_chain: MessageChain,
     pub user: User,
 }
+
 impl BridgeMessage {}
 
 pub type MessageChain = Vec<MessageContent>;
@@ -31,10 +91,13 @@ pub enum MessageContent {
         text: String,
     },
     Image {
-        url: Option<String>,  // 图片地址, 通常是cdn或者远程
-        path: Option<String>, // 本机图片地址
+        /// 图片地址, 通常是cdn或者远程
+        url: Option<String>,
+        /// 本机图片地址
+        path: Option<String>,
     },
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
     pub name: String,

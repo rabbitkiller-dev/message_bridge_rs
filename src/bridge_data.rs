@@ -1,11 +1,14 @@
+///! 定义桥的数据结构，读写方法
+
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 
 use serde_json::{from_str, to_string};
 
+use crate::bridge::BridgeClientPlatform;
 use crate::bridge::User;
 
-/// 绑定映射
+///! 定义绑定映射
 pub mod bind_map {
     use crate::bridge_data::*;
 
@@ -15,13 +18,21 @@ pub mod bind_map {
     const BIND_MAP_PATH: &str = "./data/BindMap.json";
 
     /// 尝试获取映射
+    /// # 参数
     /// - `user` 目标用户
-    pub fn get_bind(user: &User) -> Option<u64> {
-        let pp = user.platform as u64;
+    /// - `to_platform` 指向绑定的平台
+    /// # 返回
+    /// 向该平台绑定的用户唯一id
+    pub fn get_bind(user: &User, to_platform: BridgeClientPlatform) -> Option<u64> {
+        // 有必要自绑定吗？
+        if to_platform == user.platform {
+            return None;
+        }
+        let pp = user.platform as u64 | to_platform as u64;
         let data = load();
 
         for ((p1, u1), (p2, u2)) in data.iter() {
-            if (p1 | p2) & pp > 0 {
+            if (p1 | p2) == pp {
                 if *u1 == user.unique_id {
                     return Some(*u2);
                 }
@@ -160,6 +171,7 @@ pub mod bind_map {
         use chrono::Local;
 
         use crate::bridge::{BridgeClientPlatform, User};
+        use crate::bridge::BridgeClientPlatform::*;
         use crate::bridge_data::bind_map::*;
 
         #[test]
@@ -182,7 +194,7 @@ pub mod bind_map {
                 unique_id: 111_111,
                 display_id: 111,
                 platform_id: 111,
-                platform: BridgeClientPlatform::Discord,
+                platform: Discord,
             };
             let u2 = User {
                 name: "".to_string(),
@@ -190,14 +202,14 @@ pub mod bind_map {
                 unique_id: 0,
                 display_id: 0,
                 platform_id: 0,
-                platform: BridgeClientPlatform::QQ,
+                platform: QQ,
             };
             let st = Local::now().timestamp_millis();
-            match get_bind(&u1) {
+            match get_bind(&u1, QQ) {
                 None => println!("{} no mapping", u1.unique_id),
                 Some(u2) => println!("{} map to {}", u1.unique_id, u2),
             }
-            match get_bind(&u2) {
+            match get_bind(&u2, Discord) {
                 None => println!("{} no mapping user", u2.unique_id),
                 Some(u3) => println!("{} map to {}", u2.unique_id, u3),
             }
@@ -229,7 +241,7 @@ pub mod bind_map {
                     unique_id: 111_111,
                     display_id: 111,
                     platform_id: 111,
-                    platform: BridgeClientPlatform::Discord,
+                    platform: Discord,
                 },
                 User {
                     name: emp(),
@@ -237,7 +249,7 @@ pub mod bind_map {
                     unique_id: 222_222,
                     display_id: 222,
                     platform_id: 222,
-                    platform: BridgeClientPlatform::QQ,
+                    platform: QQ,
                 },
                 User {
                     name: emp(),
@@ -245,7 +257,7 @@ pub mod bind_map {
                     unique_id: 333_333,
                     display_id: 333,
                     platform_id: 333,
-                    platform: BridgeClientPlatform::Discord,
+                    platform: Discord,
                 },
                 User {
                     name: emp(),
@@ -253,7 +265,7 @@ pub mod bind_map {
                     unique_id: 444_444,
                     display_id: 444,
                     platform_id: 444,
-                    platform: BridgeClientPlatform::QQ,
+                    platform: QQ,
                 },
                 User {
                     name: emp(),
@@ -261,7 +273,7 @@ pub mod bind_map {
                     unique_id: 555_555,
                     display_id: 555,
                     platform_id: 555,
-                    platform: BridgeClientPlatform::Discord,
+                    platform: Discord,
                 },
                 User {
                     name: emp(),
@@ -269,7 +281,7 @@ pub mod bind_map {
                     unique_id: 666_666,
                     display_id: 666,
                     platform_id: 666,
-                    platform: BridgeClientPlatform::Discord,
+                    platform: Discord,
                 },
             ]
         }
