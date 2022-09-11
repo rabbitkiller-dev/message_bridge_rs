@@ -101,11 +101,17 @@ pub enum MessageContent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
+    /// 全称
     pub name: String,
+    /// 头像链接
     pub avatar_url: Option<String>,
+    /// 系统id
     pub unique_id: u64,
-    pub display_id: u16,
+    /// 显示id
+    pub display_id: u64,
+    /// 群组/伺服器id
     pub platform_id: u64,
+    /// 客户端平台枚举
     pub platform: BridgeClientPlatform,
 }
 

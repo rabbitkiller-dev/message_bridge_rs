@@ -117,7 +117,7 @@ impl EventHandler for MiraiBridgeHandler {
                 )),
                 unique_id: group_message.sender.id,
                 platform: BridgeClientPlatform::QQ,
-                display_id: group_message.sender.id as u16,
+                display_id: group_message.sender.id,
                 platform_id: group_message.sender.group.id,
             };
 

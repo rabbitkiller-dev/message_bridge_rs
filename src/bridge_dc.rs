@@ -131,8 +131,8 @@ impl EventHandler for Handler {
             avatar_url: None,
             platform_id: 0,
             unique_id: msg.author.id.0,
-            display_id: msg.author.discriminator,
             platform: BridgeClientPlatform::Discord,
+            display_id: msg.author.discriminator as u64,
         };
         if let Some(url) = msg.author.avatar_url() {
             println!("[bridge_dc] avatar_url: {:?}", url);
