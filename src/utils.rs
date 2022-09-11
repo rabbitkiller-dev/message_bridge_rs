@@ -1,5 +1,7 @@
+use js_sandbox::{AnyError, Script};
 use reqwest::Client;
-use std::fmt::Debug;
+use serde::Deserialize;
+use serde::Serialize;
 use std::io::Cursor;
 // use std::{fs::File, io::Write};
 use std::path;
@@ -40,4 +42,35 @@ pub async fn init() {
             println!("{:?}", err);
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum MarkdownAst {
+    // 文本
+    Plain { text: String },
+    // 桥@成员
+    At { username: String },
+    // @dc成员
+    AtInDiscordUser { id: String },
+}
+
+/**
+ * 将dc和qq消息进行解析
+ */
+pub fn parser_message(content: &str) -> Vec<MarkdownAst> {
+    let str = std::fs::read_to_string("./mde.js").unwrap();
+    let mut script = Script::from_string(str.as_str()).unwrap();
+
+    let result: Vec<MarkdownAst> = script.call("parserBridgeMessage", &content).unwrap();
+    result
+}
+
+/**
+ * 测试parser_message
+ */
+#[test]
+pub fn test_() {
+    let vec = parser_message("<@724827488588660837>");
+    println!("{:?}", vec);
 }

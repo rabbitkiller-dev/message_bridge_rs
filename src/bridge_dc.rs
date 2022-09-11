@@ -6,13 +6,13 @@ use serenity::http::Http;
 use serenity::model::channel::AttachmentType;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
-use serenity::model::Timestamp;
 use serenity::model::webhook::Webhook;
+use serenity::model::Timestamp;
 use serenity::prelude::*;
 
-use crate::{bridge, Config};
 use crate::bridge::BridgeClientPlatform;
 use crate::bridge_log;
+use crate::{bridge, Config};
 
 /**
  *
@@ -163,11 +163,41 @@ impl EventHandler for Handler {
             message_chain: Vec::new(),
             user,
         };
-        bridge_message
-            .message_chain
-            .push(bridge::MessageContent::Plain {
-                text: msg.content.clone(),
-            });
+
+        let result = crate::utils::parser_message(&msg.content);
+        for ast in result {
+            match ast {
+                crate::utils::MarkdownAst::Plain { text } => {
+                    bridge_message
+                        .message_chain
+                        .push(bridge::MessageContent::Plain { text: text });
+                }
+                crate::utils::MarkdownAst::At { username } => {
+                    bridge_message
+                        .message_chain
+                        .push(bridge::MessageContent::At {
+                            bridge_user_id: None,
+                            username: username,
+                        });
+                }
+                crate::utils::MarkdownAst::AtInDiscordUser { id } => {
+                    let id: u64 = id.parse::<u64>().unwrap();
+                    let member = ctx
+                        .http
+                        .get_member(msg.guild_id.unwrap().0, id)
+                        .await
+                        .unwrap();
+                    let member_name =
+                        format!("[DC] {}#{}", member.user.name, member.user.discriminator);
+                    bridge_message
+                        .message_chain
+                        .push(bridge::MessageContent::At {
+                            bridge_user_id: None,
+                            username: member_name,
+                        });
+                }
+            }
+        }
         // 将附件一股脑的放进图片里面 TODO: 以后在区分非图片的附件
         for attachment in msg.attachments {
             bridge_message
@@ -216,7 +246,22 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn ready(&self, _: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
+        for bridge_config in self.config.bridges.iter() {
+            let channel = ctx
+                .http
+                .get_channel(bridge_config.discord.channelId)
+                .await
+                .unwrap();
+            channel
+                .id()
+                .send_message(&ctx.http, |m| {
+                    m.content("Message Bridge正在运行中...");
+                    m
+                })
+                .await
+                .unwrap();
+        }
         println!("{} 已连接到discord!", ready.user.name);
     }
 }

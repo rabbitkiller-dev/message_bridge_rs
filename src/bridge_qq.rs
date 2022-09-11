@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use mirai_rs::api::MessageEvent;
-use mirai_rs::EventHandler;
 use mirai_rs::message::{MessageChain, MessageContent};
+use mirai_rs::EventHandler;
 use mirai_rs::Mirai;
+use regex::Regex;
 
-use crate::{bridge, Config};
 use crate::bridge::BridgeClientPlatform;
+use crate::{bridge, Config};
 
 pub struct MiraiBridgeHandler {
     pub config: Arc<Config>,
@@ -48,6 +49,35 @@ pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai
                         base64: None,
                     });
                 }
+                bridge::MessageContent::At {
+                    bridge_user_id,
+                    username,
+                } => {
+                    let re = Regex::new(r"@\[QQ\] [^\n]+?\(([0-9]+)\)").unwrap();
+                    let caps = re.captures(username);
+                    match caps {
+                        Some(caps) => {
+                            let target = caps.get(1);
+                            if let Some(target) = target {
+                                let target = target.as_str().parse::<u64>().unwrap();
+                                message_chain.push(MessageContent::At {
+                                    target: target,
+                                    display: Some("".to_string()),
+                                })
+                            } else {
+                                message_chain.push(MessageContent::Plain {
+                                    text: "{@用户出现错误}".to_string(),
+                                });
+                                println!("[bridge_qq] @用户出现错误: {}", username);
+                            }
+                        }
+                        None => {
+                            message_chain.push(MessageContent::Plain {
+                                text: format!("@{}", username),
+                            });
+                        }
+                    }
+                }
                 _ => message_chain.push(MessageContent::Plain {
                     text: "{无法识别的MessageChain}".to_string(),
                 }),
@@ -68,6 +98,9 @@ pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai
     }
 }
 
+/**
+ * 消息桥构建入口
+ */
 pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
     let mut mirai = Mirai::builder(
         &config.miraiConfig.host,
@@ -87,6 +120,9 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
     }
 }
 
+/**
+ * 用来监听Mirai(qq)发送而来的事件
+ */
 #[mirai_rs::async_trait]
 impl EventHandler for MiraiBridgeHandler {
     async fn message(&self, msg: MessageEvent) {
