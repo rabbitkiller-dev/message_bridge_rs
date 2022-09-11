@@ -18,7 +18,7 @@ type CacheBind = Vec<(i64, BindMeta)>;
 const CACHE_TIMEOUT: i64 = 30_000;
 
 /// 持续接收指令消息
-pub async fn cmd(bridge: Arc<BridgeClient>) {
+pub async fn listen(bridge: Arc<BridgeClient>) {
     // cache token - bind cmd
     let mut cache_bind: CacheBind = Vec::with_capacity(1024);
     let mut rx = bridge.sender.subscribe();
@@ -38,7 +38,7 @@ pub async fn cmd(bridge: Arc<BridgeClient>) {
 /// 开启频道
 pub async fn start(_config: Arc<Config>, bridge: Arc<BridgeClient>) {
     tokio::select! {
-        _ = cmd(bridge.clone()) => {},
+        _ = listen(bridge.clone()) => {},
     }
 }
 

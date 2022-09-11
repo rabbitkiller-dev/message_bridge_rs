@@ -1,24 +1,26 @@
-use crate::bridge_log;
-use crate::{bridge, Config};
 use std::path::Path;
 use std::sync::Arc;
 
-use crate::bridge::BridgeClientPlatform;
 use serenity::async_trait;
 use serenity::http::Http;
 use serenity::model::channel::AttachmentType;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
-use serenity::model::webhook::Webhook;
 use serenity::model::Timestamp;
+use serenity::model::webhook::Webhook;
 use serenity::prelude::*;
 
+use crate::{bridge, Config};
+use crate::bridge::BridgeClientPlatform;
+use crate::bridge_log;
+
 /**
-*
-*/
+ *
+ */
 pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
+    let mut subs = bridge.sender.subscribe();
     loop {
-        let message = bridge.sender.subscribe().recv().await.unwrap();
+        let message = &subs.recv().await.unwrap();
         println!("[bridge_dc] 收到桥的消息, 同步到discord上");
         let http = Http::new("");
         let webhook = Webhook::from_id_with_token(
@@ -32,11 +34,11 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
         webhook
             .execute(&http, false, |w| {
                 // 配置发送者头像
-                if let Some(url) = message.user.avatar_url {
+                if let Some(url) = &message.user.avatar_url {
                     w.avatar_url(url.as_str());
                 }
                 // 配置发送者用户名
-                w.username(message.user.name);
+                w.username(message.user.name.clone());
 
                 let mut content: Vec<&str> = Vec::new();
                 for chain in &message.message_chain {
@@ -174,12 +176,6 @@ impl EventHandler for Handler {
                     url: Some(attachment.url),
                     path: None,
                 });
-        }
-
-        // skip cmd
-        if msg.content.starts_with("!") {
-            self.bridge.send_to("bridge_cmd_adapter", &bridge_message);
-            // return;
         }
 
         self.bridge.send(bridge_message);

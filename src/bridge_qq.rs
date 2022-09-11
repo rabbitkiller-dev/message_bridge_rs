@@ -1,10 +1,12 @@
-use crate::bridge::BridgeClientPlatform;
-use crate::{bridge, Config};
-use mirai_rs::api::MessageEvent;
-use mirai_rs::message::{MessageChain, MessageContent};
-use mirai_rs::EventHandler;
-use mirai_rs::Mirai;
 use std::sync::Arc;
+
+use mirai_rs::api::MessageEvent;
+use mirai_rs::EventHandler;
+use mirai_rs::message::{MessageChain, MessageContent};
+use mirai_rs::Mirai;
+
+use crate::{bridge, Config};
+use crate::bridge::BridgeClientPlatform;
 
 pub struct MiraiBridgeHandler {
     pub config: Arc<Config>,
@@ -12,8 +14,9 @@ pub struct MiraiBridgeHandler {
 }
 
 pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai_http::MiraiHttp) {
+    let mut subs = bridge.sender.subscribe();
     loop {
-        let message = bridge.sender.subscribe().recv().await.unwrap();
+        let message = &subs.recv().await.unwrap();
         println!("[bridge_qq] 收到桥的消息, 同步到qq上");
         println!("{:?}", message);
         let mut message_chain: MessageChain = vec![];
@@ -22,7 +25,7 @@ pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai
         if let Some(_) = message.user.avatar_url {
             message_chain.push(MessageContent::Image {
                 image_id: None,
-                url: message.user.avatar_url,
+                url: message.user.avatar_url.clone(),
                 path: None,
                 base64: None,
             });
@@ -123,23 +126,11 @@ impl EventHandler for MiraiBridgeHandler {
                 message_chain: Vec::new(),
                 user,
             };
-            // skip cmd
-            if let Some(token) = group_message.message_chain.get(0) {
-                match token {
-                    MessageContent::Plain { text } => {
-                        if text.starts_with("!") {
-                            self.bridge.send_to("bridge_cmd_adapter", &bridge_message);
-                            // return;
-                        }
-                    }
-                    _ => {}
-                }
-            }
             for chain in &group_message.message_chain {
                 match chain {
                         MessageContent::Source { id: _, time: _ } => {}
                         MessageContent::Plain { text } => {
-                            bridge_message.message_chain.push(bridge::MessageContent::Plain { text: text.to_string() })
+                            bridge_message.message_chain.push(bridge::MessageContent::Plain { text: text.clone() });
                         }
                         MessageContent::Image { image_id: _, url, path: _, base64: _ } => {
                             if let Some(url) = url {

@@ -17,13 +17,18 @@ pub enum Cmd {
 /// 识别指令类别
 /// - `token_chain` 消息链
 pub fn kind(token_chain: &MessageChain) -> Option<Cmd> {
-    if let Some(first) = token_chain.get(0) {
-        if let MessageContent::Plain { text } = first {
+    let mut is_cmd = false;
+    for ctx in token_chain {
+        if let MessageContent::Plain { text } = ctx {
+            if !is_cmd && !text.starts_with('!') {
+                break;
+            }
+            is_cmd = true;
             if Bind.get_regex().is_match(text) {
-                return Some(Bind)
+                return Some(Bind);
             }
             if ConfirmBind.get_regex().is_match(text) {
-                return Some(ConfirmBind)
+                return Some(ConfirmBind);
             }
         };
     }
