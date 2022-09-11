@@ -24,12 +24,13 @@ pub async fn cmd(bridge: Arc<BridgeClient>) {
     let mut rx = bridge.sender.subscribe();
 
     loop {
-        let sign = rx.recv().await.unwrap();
+        let msg = rx.recv().await.unwrap();
         // match cmd
-        if let Some(cmd) = bridge_cmd::kind(&sign.message_chain) {
+        if let Some(cmd) = bridge_cmd::kind(&msg.message_chain) {
             match cmd {
-                Bind => try_cache_bind(&sign, &mut cache_bind),
-            } // match cmd kind
+                Bind => try_cache_bind(&msg, &mut cache_bind),
+                ConfirmBind => try_bind(&msg.user, &mut cache_bind),
+            }
         }
     } // loop
 }
@@ -121,9 +122,9 @@ fn try_cache_bind(input: &BridgeMessage, caches: &mut CacheBind) {
     });
     if add_cache {
         // TODO 提醒用户注意超时
-        println!("cache bind-cmd {:?}", new_meta);
+        println!("缓存绑定请求: {:?}", new_meta);
         caches.push((now, new_meta));
-        println!("cache count {}", caches.len());
+        println!("缓存请求数: {}", caches.len());
     }
 }
 
@@ -146,8 +147,10 @@ fn try_bind(user: &User, caches: &mut CacheBind) {
         true
     });
     if let Some(m) = opt {
-        // TODO 通过用户id获取dc伺服器和q群的信息
+        let from = m.from.to_user();
         // TODO 验证映射用户信息有效
-        add_bind(&m.from.to_user(), user);
+        println!("{}({}) bind to {}", from.platform, from.unique_id, user.name);
+        add_bind(&from, user);
     }
+    // TODO 反馈：绑定成功or失败
 }

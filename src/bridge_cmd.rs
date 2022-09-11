@@ -10,6 +10,8 @@ use crate::bridge_cmd::Cmd::*;
 pub enum Cmd {
     /// dc,qq互相绑定
     Bind,
+    /// 确认绑定
+    ConfirmBind,
 }
 
 /// 识别指令类别
@@ -17,11 +19,12 @@ pub enum Cmd {
 pub fn kind(token_chain: &MessageChain) -> Option<Cmd> {
     if let Some(first) = token_chain.get(0) {
         if let MessageContent::Plain { text } = first {
-            return if Bind.get_regex().is_match(text) {
-                Some(Bind)
-            } else {
-                None
-            };
+            if Bind.get_regex().is_match(text) {
+                return Some(Bind)
+            }
+            if ConfirmBind.get_regex().is_match(text) {
+                return Some(ConfirmBind)
+            }
         };
     }
     None
@@ -34,6 +37,7 @@ impl Cmd {
         let r = match self {
             // !绑定 平台 用户id
             Bind => r"\A!绑定 (\S+?) (\d{4,20})\z",
+            ConfirmBind => r"\A!确认绑定\z",
         };
         Regex::new(r).unwrap()
     }

@@ -159,20 +159,21 @@ impl BridgeClient {
     /// 发送到指定频道
     /// - cli 消息频道名
     pub fn send_to(&self, cli: &str, msg: &BridgeMessage) {
+        let log_pf = "BridgeClient@send_to";
         let bridge = self.bridge.lock();
         match bridge {
             Ok(b) => {
                 let client = b.clients.iter().find(|c| c.name == cli.to_string());
                 if let Some(cli) = client {
                     if let Err(_) = cli.sender.send(msg.clone()) {
-                        println!("All Share-Receiver handles have already been dropped");
+                        println!("{}: 没有可用的接收频道！", log_pf);
                     }
                 } else {
-                    println!(r#"Can not found "{cli}""#);
+                    println!("{}: 频道 '{:?}' 不存在！", log_pf, cli);
                 }
             }
-            Err(_) => {
-                println!("Err when get bridge lock");
+            Err(e) => {
+                println!("{}: 桥的服务端异常！{:#?}", log_pf, e);
                 return;
             }
         } // match
