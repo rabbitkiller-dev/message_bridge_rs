@@ -56,6 +56,17 @@ impl FromStr for BridgeClientPlatform {
     }
 }
 
+impl BridgeClientPlatform {
+    /// 数值转枚举
+    pub fn by(val: u64) -> Option<Self> {
+        match val {
+            1 => Some(Discord),
+            2 => Some(QQ),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod ts_bridge_client_platform {
     use BCP::*;

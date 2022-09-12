@@ -5,14 +5,15 @@ use std::io::{Read, Write};
 
 use serde_json::{from_str, to_string};
 
-use crate::bridge::BridgeClientPlatform;
+use crate::bridge::BridgeClientPlatform as BCP;
 use crate::bridge::User;
 
 ///! 定义绑定映射
 pub mod bind_map {
     use crate::bridge_data::*;
 
-    type BindKey = (u64, u64);
+    /// 平台枚举, unique_id, display_id
+    type BindKey = (u64, u64, u64);
     type BindData = Vec<(BindKey, BindKey)>;
 
     const BIND_MAP_PATH: &str = "./data/BindMap.json";
@@ -22,8 +23,8 @@ pub mod bind_map {
     /// - `user` 目标用户
     /// - `to_platform` 指向绑定的平台
     /// # 返回
-    /// 向该平台绑定的用户唯一id
-    pub fn get_bind(user: &User, to_platform: BridgeClientPlatform) -> Option<u64> {
+    /// 含部分有效字段的 User: platform, unique_id, display_id
+    pub fn get_bind(user: &User, to_platform: BCP) -> Option<User> {
         // 有必要自绑定吗？
         if to_platform == user.platform {
             return None;
@@ -31,13 +32,25 @@ pub mod bind_map {
         let pp = user.platform as u64 | to_platform as u64;
         let data = load();
 
-        for ((p1, u1), (p2, u2)) in data.iter() {
+        for (a @ (p1, u1, d1), b @ (p2, u2, d2)) in data.iter() {
             if (p1 | p2) == pp {
-                if *u1 == user.unique_id {
-                    return Some(*u2);
-                }
-                if *u2 == user.unique_id {
-                    return Some(*u1);
+                let f: Option<BindKey> =
+                    if *u1 == user.unique_id || *d1 == user.display_id {
+                        Some(*b)
+                    } else if *u2 == user.unique_id || *d2 == user.display_id {
+                        Some(*a)
+                    } else {
+                        None
+                    };
+                if let Some((p, u, d)) = f {
+                    return Some(User {
+                        name: "".to_string(),
+                        avatar_url: None,
+                        platform_id: 0,
+                        platform: BCP::by(p).unwrap(),
+                        display_id: d,
+                        unique_id: u,
+                    });
                 }
             }
         }
@@ -52,10 +65,15 @@ pub mod bind_map {
         let mut add = true;
         let pp = p.0 | p.1;
 
-        for ((p1, u1), (p2, u2)) in data.iter() {
+        for ((p1, u1, d1), (p2, u2, d2)) in data.iter() {
             if (p1 | p2) == pp {
                 if (*u1 == user1.unique_id && *u2 == user2.unique_id) ||
                     (*u2 == user1.unique_id && *u1 == user2.unique_id) {
+                    add = false;
+                    break;
+                }
+                if (*d1 == user1.display_id && *d2 == user2.display_id) ||
+                    (*d2 == user1.display_id && *d1 == user2.display_id) {
                     add = false;
                     break;
                 }
@@ -63,7 +81,7 @@ pub mod bind_map {
         }
 
         if add {
-            data.push(((p.0, user1.unique_id), (p.1, user2.unique_id)));
+            data.push(((p.0, user1.unique_id, user1.display_id), (p.1, user2.unique_id, user2.display_id)));
             save(&data)
         }
     }
@@ -75,10 +93,12 @@ pub mod bind_map {
         let len = data.len();
         let pp = user1.platform as u64 | user2.platform as u64;
 
-        data.retain(|((p1, u1), (p2, u2))| {
+        data.retain(|((p1, u1, d1), (p2, u2, d2))| {
             if (p1 | p2) == pp {
                 !((*u1 == user1.unique_id && *u2 == user2.unique_id) ||
-                    (*u1 == user2.unique_id && *u2 == user1.unique_id))
+                    (*u1 == user2.unique_id && *u2 == user1.unique_id) ||
+                    (*d1 == user1.display_id && *d2 == user2.display_id) ||
+                    (*d1 == user2.display_id && *d2 == user1.display_id))
             } else {
                 true
             }
@@ -95,9 +115,10 @@ pub mod bind_map {
         let len = data.len();
         let p = user.platform as u64;
 
-        data.retain(|((p1, u1), (p2, u2))|
+        data.retain(|((p1, u1, d1), (p2, u2, d2))|
             if (p1 | p2) & p > 0 {
-                !(*u1 == user.unique_id || *u2 == user.unique_id)
+                !(*u1 == user.unique_id || *u2 == user.unique_id ||
+                    *d1 == user.display_id || *d2 == user.display_id)
             } else {
                 true
             });
@@ -128,7 +149,7 @@ pub mod bind_map {
             match from_str::<BindData>(&json.as_str()) {
                 Ok(mut data) => {
                     // 删除无平台映射
-                    data.retain(|((p1, _), (p2, _))| *p1 > 0 && *p2 > 0);
+                    data.retain(|((p1, ..), (p2, ..))| *p1 > 0 && *p2 > 0);
                     return data;
                 }
                 Err(e) => println!("BindMap load fail, data can not be parsed; {:#?}", e),
@@ -170,8 +191,8 @@ pub mod bind_map {
     mod ts_bind_map {
         use chrono::Local;
 
-        use crate::bridge::{BridgeClientPlatform, User};
         use crate::bridge::BridgeClientPlatform::*;
+        use crate::bridge::User;
         use crate::bridge_data::bind_map::*;
 
         #[test]
@@ -207,11 +228,11 @@ pub mod bind_map {
             let st = Local::now().timestamp_millis();
             match get_bind(&u1, QQ) {
                 None => println!("{} no mapping", u1.unique_id),
-                Some(u2) => println!("{} map to {}", u1.unique_id, u2),
+                Some(u2) => println!("{} map to {}", u1.unique_id, u2.unique_id),
             }
             match get_bind(&u2, Discord) {
                 None => println!("{} no mapping user", u2.unique_id),
-                Some(u3) => println!("{} map to {}", u2.unique_id, u3),
+                Some(u3) => println!("{} map to {}", u2.unique_id, u3.unique_id),
             }
             let et = Local::now().timestamp_millis();
             println!("get 2 mapping: {}ms", et - st);

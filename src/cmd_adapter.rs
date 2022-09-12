@@ -104,9 +104,9 @@ fn parse_bind_args(args: &Vec<String>) -> Option<(BridgeClientPlatform, u64)> {
 /// - `user` 请求者信息
 /// - `to` 指令参数：绑定的平台和用户id
 fn is_mapping(user: &User, to: (BridgeClientPlatform, u64)) -> bool {
-    if let Some(u) = get_bind(user, to.0) {
-        if u == to.1 {
-            println!("'{}' 已映射至 '{} {}'", user.name, to.0, to.1);
+    if let Some(mapping) = get_bind(user, to.0) {
+        if mapping.unique_id == to.1 || mapping.display_id == to.1 {
+            println!("'{}' 已映射至 '{} {}'", user.name, mapping.platform, mapping.unique_id);
             return true;
         }
     }
