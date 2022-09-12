@@ -1844,10 +1844,10 @@ var SimpleMarkdown /* : Exports */ = {
 const bridgeRule = {
     atDC: {
         order: 0,
-        match: source => /^@\[DC\] ([^\n#]+)#(\d\d\d\d)/.exec(source),
+        match: source => /^@\[DC\] [^\n]+?#\d\d\d\d/.exec(source),
         parse: function (capture, parse, state) {
             console.log(capture);
-            return { type: 'At', source: 'DC', username: capture[1], discriminator: capture[2] };
+            return { type: 'At', username: capture[0] };
         },
         html: function (node, output, state) {
             return '{{atDc}}';

@@ -1,11 +1,13 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use regex::Regex;
 use serenity::async_trait;
 use serenity::http::Http;
 use serenity::model::channel::AttachmentType;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
+use serenity::model::guild::Member;
 use serenity::model::webhook::Webhook;
 use serenity::model::Timestamp;
 use serenity::prelude::*;
@@ -17,12 +19,11 @@ use crate::{bridge, Config};
 /**
  *
  */
-pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
+pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
     let mut subs = bridge.sender.subscribe();
     loop {
         let message = &subs.recv().await.unwrap();
         println!("[bridge_dc] 收到桥的消息, 同步到discord上");
-        let http = Http::new("");
         let webhook = Webhook::from_id_with_token(
             &http,
             message.bridge_config.discord.id,
@@ -30,6 +31,52 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
         )
         .await
         .unwrap();
+        let guild_id = webhook.guild_id.unwrap();
+
+        // 组装dc消息
+        let mut content: Vec<String> = Vec::new();
+        let mut fils: Vec<AttachmentType> = Vec::new();
+        for chain in &message.message_chain {
+            match chain {
+                bridge::MessageContent::Plain { text } => content.push(text.clone()),
+                bridge::MessageContent::Image { url, path } => {
+                    if let Some(path) = path {
+                        let path = Path::new(path);
+                        fils.push(AttachmentType::Path(path));
+                        continue;
+                    }
+                    if let Some(url) = url {
+                        let url = url::Url::parse(url).unwrap();
+                        fils.push(AttachmentType::Image(url));
+                    }
+                }
+                bridge::MessageContent::At {
+                    bridge_user_id,
+                    username,
+                } => {
+                    let re = Regex::new(r"@\[DC\] ([^\n]+)?#(\d\d\d\d)").unwrap();
+                    let caps = re.captures(username);
+                    match caps {
+                        Some(caps) => {
+                            let name = caps.get(1).unwrap();
+                            let dis = caps.get(2).unwrap();
+                            let member =
+                                find_member_by_name(&http, guild_id.0, name.as_str(), dis.as_str())
+                                    .await;
+                            if let Some(member) = member {
+                                content.push(format!("<@{}>", member.user.id.0));
+                            } else {
+                                content.push(username.clone());
+                            }
+                        }
+                        None => {
+                            content.push(username.clone());
+                        }
+                    }
+                }
+                _ => content.push("{无法识别的MessageChain}".to_string()),
+            };
+        }
 
         webhook
             .execute(&http, false, |w| {
@@ -39,29 +86,10 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
                 }
                 // 配置发送者用户名
                 w.username(message.user.name.clone());
-
-                let mut content: Vec<&str> = Vec::new();
-                for chain in &message.message_chain {
-                    match chain {
-                        bridge::MessageContent::Plain { text } => content.push(text),
-                        bridge::MessageContent::Image { url, path } => {
-                            if let Some(path) = path {
-                                let path = Path::new(path);
-                                w.add_file(AttachmentType::Path(path));
-                                continue;
-                            }
-                            if let Some(url) = url {
-                                let url = url::Url::parse(url).unwrap();
-                                w.add_file(AttachmentType::Image(url));
-                            }
-                        }
-                        _ => content.push("{无法识别的MessageChain}"),
-                    };
+                if content.len() == 0 && fils.len() == 0 {
+                    content.push("{本次发送的消息没有内容}".to_string());
                 }
-                if content.len() == 0 {
-                    content.push("{本次发送的消息没有内容}");
-                }
-                w.content(content.join(""))
+                w.add_files(fils).content(content.join(""))
             })
             .await
             .expect("[bridge_dc] Could not execute webhook.");
@@ -71,6 +99,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>) {
 pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
     let token = &config.discordConfig.botToken;
     let intents = GatewayIntents::GUILD_MESSAGES
+        | GatewayIntents::GUILD_MEMBERS
         | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
     println!("dc");
@@ -83,12 +112,13 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
         .await
         .expect("Err creating client");
 
+    let cache = client.cache_and_http.clone();
     println!("dc2");
     tokio::select! {
         _ = client.start() => {
             println!("xxxxxx");
         },
-        _ = dc(bridge.clone()) => {},
+        _ = dc(bridge.clone(), cache.http.clone()) => {},
     }
 }
 
@@ -264,4 +294,20 @@ impl EventHandler for Handler {
         }
         println!("{} 已连接到discord!", ready.user.name);
     }
+}
+
+/**
+ * 通过名称和discriminator查询成员
+ */
+async fn find_member_by_name(
+    http: &Http,
+    guild_id: u64,
+    nickname: &str,
+    discriminator: &str,
+) -> Option<Member> {
+    let members = http.get_guild_members(guild_id, None, None).await.unwrap();
+    let member = members.into_iter().find(|member| {
+        member.user.name == nickname && member.user.discriminator.to_string() == discriminator
+    });
+    member
 }

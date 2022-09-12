@@ -166,7 +166,29 @@ impl EventHandler for MiraiBridgeHandler {
                 match chain {
                         MessageContent::Source { id: _, time: _ } => {}
                         MessageContent::Plain { text } => {
-                            bridge_message.message_chain.push(bridge::MessageContent::Plain { text: text.clone() });
+                            let result = crate::utils::parser_message(text);
+                            for ast in result {
+                                match ast {
+                                    crate::utils::MarkdownAst::Plain { text } => {
+                                        bridge_message
+                                            .message_chain
+                                            .push(bridge::MessageContent::Plain { text: text });
+                                    }
+                                    crate::utils::MarkdownAst::At { username } => {
+                                        bridge_message
+                                            .message_chain
+                                            .push(bridge::MessageContent::At {
+                                                bridge_user_id: None,
+                                                username: username,
+                                            });
+                                    }
+                                    crate::utils::MarkdownAst::AtInDiscordUser { id } => {
+                                        bridge_message
+                                            .message_chain
+                                            .push(bridge::MessageContent::Plain { text: format!("<@{}>", id) } );
+                                    }
+                                }
+                            }
                         }
                         MessageContent::Image { image_id: _, url, path: _, base64: _ } => {
                             if let Some(url) = url {

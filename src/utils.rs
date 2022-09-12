@@ -62,7 +62,23 @@ pub fn parser_message(content: &str) -> Vec<MarkdownAst> {
     let str = std::fs::read_to_string("./mde.js").unwrap();
     let mut script = Script::from_string(str.as_str()).unwrap();
 
-    let result: Vec<MarkdownAst> = script.call("parserBridgeMessage", &content).unwrap();
+    let mut result: Vec<MarkdownAst> = script.call("parserBridgeMessage", &content).unwrap();
+
+    if let Some(ast) = result.last() {
+        if let MarkdownAst::Plain { text } = ast {
+            if (text.eq("\n")) {
+                result.remove(result.len() - 1);
+            }
+        }
+    }
+    if let Some(ast) = result.last() {
+        if let MarkdownAst::Plain { text } = ast {
+            if (text.eq("\n")) {
+                result.remove(result.len() - 1);
+            }
+        }
+    }
+
     result
 }
 
@@ -72,5 +88,10 @@ pub fn parser_message(content: &str) -> Vec<MarkdownAst> {
 #[test]
 pub fn test_() {
     let vec = parser_message("<@724827488588660837>");
+    println!("{:?}", vec);
+    let vec = parser_message(
+        r#"@[DC] 6uopdong#4700
+    !绑定 qq 1261972160"#,
+    );
     println!("{:?}", vec);
 }
