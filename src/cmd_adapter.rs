@@ -55,7 +55,8 @@ pub async fn listen(conf: Arc<Config>, bridge: Arc<BridgeClient>) {
                     user: msg.user.clone(),
                 };
                 feedback.message_chain.push(Plain { text: result });
-                bridge.send(feedback);
+                // bridge.send(feedback);
+                println!("bot feedback: {:#?}", feedback);
             }
         }
     } // loop
