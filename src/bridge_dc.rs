@@ -78,6 +78,19 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
             };
         }
 
+        if let bridge::BridgeClientPlatform::Cmd = message.user.platform {
+            let channel = http
+                .get_channel(message.bridge_config.discord.channelId)
+                .await
+                .unwrap();
+            channel
+                .id()
+                .send_message(&http, |w| w.content(content.join("")))
+                .await
+                .expect("[bridge_dc] Could not execute send cmd message.");
+            continue;
+        }
+
         webhook
             .execute(&http, false, |w| {
                 // 配置发送者头像

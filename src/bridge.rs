@@ -31,6 +31,7 @@ impl Display for ParseEnumErr {
 pub enum BridgeClientPlatform {
     Discord = 1 << 0,
     QQ = 1 << 1,
+    Cmd = 1 << 2,
 }
 
 impl Display for BridgeClientPlatform {
@@ -38,6 +39,7 @@ impl Display for BridgeClientPlatform {
         let name = match self {
             Discord => "DC",
             QQ => "QQ",
+            Cmd => "CMD",
         };
         write!(f, "{}", name)
     }
@@ -176,6 +178,15 @@ impl BridgeClient {
                 if let Err(e) = client.sender.send(message.clone()) {
                     println!("消息中转异常：{:#?}", e);
                 }
+            }
+        } // for
+    }
+
+    pub fn broadcast(&self, message: BridgeMessage) {
+        let bridge = self.bridge.lock().unwrap();
+        for client in bridge.clients.iter() {
+            if let Err(e) = client.sender.send(message.clone()) {
+                println!("消息中转异常：{:#?}", e);
             }
         } // for
     }

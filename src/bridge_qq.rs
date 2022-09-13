@@ -22,19 +22,23 @@ pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai
         println!("{:?}", message);
         let mut message_chain: MessageChain = vec![];
 
-        // 配置发送者头像
-        if let Some(_) = message.user.avatar_url {
-            message_chain.push(MessageContent::Image {
-                image_id: None,
-                url: message.user.avatar_url.clone(),
-                path: None,
-                base64: None,
+        if let BridgeClientPlatform::Cmd = message.user.platform {
+            // 平台方是cmd时不配置头像和名称
+        } else {
+            // 配置发送者头像
+            if let Some(_) = message.user.avatar_url {
+                message_chain.push(MessageContent::Image {
+                    image_id: None,
+                    url: message.user.avatar_url.clone(),
+                    path: None,
+                    base64: None,
+                });
+            }
+            // 配置发送者用户名
+            message_chain.push(MessageContent::Plain {
+                text: format!("{}\n", message.user.name),
             });
         }
-        // 配置发送者用户名
-        message_chain.push(MessageContent::Plain {
-            text: format!("{}\n", message.user.name),
-        });
 
         for chain in message.message_chain.iter() {
             match chain {
@@ -205,6 +209,9 @@ impl EventHandler for MiraiBridgeHandler {
                                 // let base64 = image_base64::to_base64(path.as_str());
                                 bridge_message.message_chain.push(bridge::MessageContent::Image { url: Some(url.to_string()), path: file_path })
                             }
+                        }
+                        MessageContent::At { target, display } => {
+                            bridge_message.message_chain.push(bridge::MessageContent::Plain { text: "{没有处理qq的MessageChain}".to_string() })
                         }
                         _ => {
                             bridge_message.message_chain.push(bridge::MessageContent::Plain { text: "{没有处理qq的MessageChain}".to_string() })

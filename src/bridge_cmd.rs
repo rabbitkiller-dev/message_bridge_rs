@@ -1,5 +1,4 @@
 ///! 集中定义用户指令
-
 use regex::Regex;
 
 use crate::bridge::{MessageChain, MessageContent, User};
@@ -8,6 +7,8 @@ use crate::bridge_cmd::Cmd::*;
 
 /// 指令类别
 pub enum Cmd {
+    /// help
+    Help,
     /// dc,qq互相绑定
     Bind,
     /// 确认绑定
@@ -30,6 +31,9 @@ pub fn kind(token_chain: &MessageChain) -> Option<Cmd> {
             if ConfirmBind.get_regex().is_match(text) {
                 return Some(ConfirmBind);
             }
+            if Help.get_regex().is_match(text) {
+                return Some(Help);
+            }
         };
     }
     None
@@ -41,6 +45,7 @@ impl Cmd {
     pub fn get_regex(&self) -> Regex {
         let r = match self {
             // !绑定 平台 用户id
+            Help => r"\A!(帮助|help)",
             Bind => r"\A!绑定 (\S+?) (\d{4,20})\z",
             ConfirmBind => r"\A!确认绑定\z",
         };
@@ -54,7 +59,9 @@ impl Cmd {
         for cap in self.get_regex().captures_iter(input.trim()) {
             for (x, mat) in cap.iter().enumerate() {
                 // cap[0] 是整句
-                if x < 1 { continue; }
+                if x < 1 {
+                    continue;
+                }
                 if let Some(_) = mat {
                     args.push(cap[x].to_string())
                 }
@@ -62,7 +69,7 @@ impl Cmd {
         }
         args
     }
-}// impl Cmd
+} // impl Cmd
 
 #[cfg(test)]
 mod ts_cmd_regex {
@@ -133,8 +140,8 @@ pub mod bind_meta {
 
     impl PartialEq<Self> for BindMeta {
         fn eq(&self, other: &Self) -> bool {
-            (self.from == other.from && self.to == other.to) ||
-                (self.from == other.to && self.to == other.from)
+            (self.from == other.from && self.to == other.to)
+                || (self.from == other.to && self.to == other.from)
         }
     }
 

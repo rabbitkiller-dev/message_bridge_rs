@@ -1,5 +1,4 @@
 ///! 接收桥收到的用户指令，加以识别和响应
-
 use std::sync::Arc;
 
 use chrono::Local;
@@ -8,10 +7,13 @@ use bridge_cmd::bind_meta::BindMeta;
 use bridge_cmd::Cmd;
 use Cmd::*;
 
-use crate::{bridge_cmd, Config};
-use crate::bridge::{BridgeClient, BridgeClientPlatform, BridgeMessage, MessageChain, MessageContent, User};
 use crate::bridge::MessageContent::Plain;
+use crate::bridge::{
+    BridgeClient, BridgeClientPlatform, BridgeMessage, MessageChain, MessageContent, User,
+};
 use crate::bridge_data::bind_map::{add_bind, get_bind};
+use crate::config::BridgeUser;
+use crate::{bridge_cmd, Config};
 
 type CacheBind = Vec<(i64, BindMeta)>;
 
@@ -29,6 +31,32 @@ pub async fn listen(conf: Arc<Config>, bridge: Arc<BridgeClient>) {
         // match cmd
         if let Some(cmd) = bridge_cmd::kind(&msg.message_chain) {
             let result = match cmd {
+                Help => {
+                    // !来点[搜图]
+                    // !废话生成器
+                    // !猜数字游戏
+
+                    // 管理员:
+                    // !服务器状态
+                    // !重启
+                    // !查看所有成员绑定关系
+                    // !绑定成员关联 [用户名] [用户名]
+                    // !解除成员关联 [用户名]
+                    let bind_str = match msg.user.platform {
+                        BridgeClientPlatform::Discord => "!绑定 qq [qq号]".to_string(),
+                        BridgeClientPlatform::QQ => "!绑定 dc [#9617(仅填写数字)]".to_string(),
+                        _ => "".to_string(),
+                    };
+                    format!(
+                        r#"!帮助
+!ping
+{}
+!确认绑定
+!解除绑定
+!查看绑定状态"#,
+                        bind_str
+                    )
+                }
                 Bind => {
                     let mut cache_msg = try_cache_bind(&msg, &mut cache_bind).to_string();
                     if cache_msg.is_empty() {
@@ -54,9 +82,11 @@ pub async fn listen(conf: Arc<Config>, bridge: Arc<BridgeClient>) {
                     message_chain: Vec::new(),
                     user: msg.user.clone(),
                 };
+                feedback.user.platform = BridgeClientPlatform::Cmd;
                 feedback.message_chain.push(Plain { text: result });
                 // bridge.send(feedback);
                 println!("bot feedback: {:#?}", feedback);
+                bridge.send(feedback);
             }
         }
     } // loop
@@ -107,7 +137,10 @@ fn parse_bind_args(args: &Vec<String>) -> Option<(BridgeClientPlatform, u64)> {
 fn is_mapping(user: &User, to: (BridgeClientPlatform, u64)) -> bool {
     if let Some(mapping) = get_bind(user, to.0) {
         if mapping.unique_id == to.1 || mapping.display_id == to.1 {
-            println!("'{}' 已映射至 '{} {}'", user.name, mapping.platform, mapping.unique_id);
+            println!(
+                "'{}' 已映射至 '{} {}'",
+                user.name, mapping.platform, mapping.unique_id
+            );
             return true;
         }
     }
@@ -165,7 +198,9 @@ fn try_bind(user: &User, caches: &mut CacheBind) -> bool {
         if *t < deadline {
             return false;
         }
-        if m.to.platform == user.platform && (m.to.user == user.unique_id || m.to.user == user.display_id) {
+        if m.to.platform == user.platform
+            && (m.to.user == user.unique_id || m.to.user == user.display_id)
+        {
             if opt == None {
                 opt = Some(*m);
             }
@@ -175,7 +210,10 @@ fn try_bind(user: &User, caches: &mut CacheBind) -> bool {
     });
     if let Some(m) = opt {
         let from = m.from.to_user();
-        println!("{}({}) bind to {}", from.platform, from.unique_id, user.name);
+        println!(
+            "{}({}) bind to {}",
+            from.platform, from.unique_id, user.name
+        );
         add_bind(&from, user);
     }
     opt != None
