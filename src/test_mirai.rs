@@ -9,7 +9,7 @@ use std::sync::Arc;
 pub struct MiraiBridgeHandler;
 #[mirai_rs::async_trait]
 impl EventHandler for MiraiBridgeHandler {
-    async fn message(&self, msg: MessageEvent) {}
+    async fn message(&self, ctx: &Mirai, msg: MessageEvent) {}
 }
 
 #[cfg(test)]

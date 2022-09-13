@@ -114,6 +114,7 @@ pub enum MessageContent {
         /// 本机图片地址
         path: Option<String>,
     },
+    Othen,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

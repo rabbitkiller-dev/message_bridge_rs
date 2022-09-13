@@ -123,7 +123,7 @@ impl Mirai {
                 Ok(res) => {
                     for item in res.data {
                         if let EventPacket::MessageEvent(message) = item {
-                            event_handler.message(message).await;
+                            event_handler.message(&self, message).await;
                             continue;
                         }
                         println!("接收到其它消息");
@@ -225,5 +225,5 @@ pub mod api {
 /// The core trait for handling events by serenity.
 #[async_trait]
 pub trait EventHandler: Send + Sync {
-    async fn message(&self, msg: MessageEvent);
+    async fn message(&self, ctx: &Mirai, msg: MessageEvent);
 }

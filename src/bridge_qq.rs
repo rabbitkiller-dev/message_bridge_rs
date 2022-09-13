@@ -54,7 +54,7 @@ pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai
                     });
                 }
                 bridge::MessageContent::At {
-                    bridge_user_id,
+                    bridge_user_id: _,
                     username,
                 } => {
                     let re = Regex::new(r"@\[QQ\] [^\n]+?\(([0-9]+)\)").unwrap();
@@ -129,7 +129,7 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
  */
 #[mirai_rs::async_trait]
 impl EventHandler for MiraiBridgeHandler {
-    async fn message(&self, msg: MessageEvent) {
+    async fn message(&self, ctx: &Mirai, msg: MessageEvent) {
         if let MessageEvent::GroupMessage(group_message) = msg {
             // 查询这个频道是否需要通知到群
             let bridge_config = match self
@@ -210,11 +210,17 @@ impl EventHandler for MiraiBridgeHandler {
                                 bridge_message.message_chain.push(bridge::MessageContent::Image { url: Some(url.to_string()), path: file_path })
                             }
                         }
-                        MessageContent::At { target, display } => {
-                            bridge_message.message_chain.push(bridge::MessageContent::Plain { text: "{没有处理qq的MessageChain}".to_string() })
+                        MessageContent::At { target, display: _ } => {
+                            let member = ctx.get_http().await.get_member_info(group_message.sender.group.id, target.clone()).await.unwrap();
+                            let name = format!(
+                                "[QQ] {}({})",
+                                member.member_name.to_string(),
+                                target
+                            );
+                            bridge_message.message_chain.push(bridge::MessageContent::At { bridge_user_id: None, username: name });
                         }
                         _ => {
-                            bridge_message.message_chain.push(bridge::MessageContent::Plain { text: "{没有处理qq的MessageChain}".to_string() })
+                            bridge_message.message_chain.push(bridge::MessageContent::Plain { text: "{没有处理qq的MessageChain}".to_string() });
                         }
                         // MessageContent::Quote { id, group_id, sender_id, target_id, origin } => todo!(),
                         // MessageContent::At { target, display } => todo!(),
