@@ -1,16 +1,18 @@
 ///! 定义桥的数据结构，读写方法
 
-use std::fs::OpenOptions;
-use std::io::{Read, Write};
-
-use serde_json::{from_str, to_string};
-
-use crate::bridge::BridgeClientPlatform as BCP;
-use crate::bridge::User;
+use {
+    crate::bridge::{BridgeClientPlatform as BCP, User},
+    std::{
+        fs::{create_dir_all, OpenOptions},
+        io::{Read, Write},
+        path,
+        path::Path,
+    },
+};
 
 ///! 定义绑定映射
 pub mod bind_map {
-    use crate::bridge_data::*;
+    use super::*;
 
     /// 平台枚举, unique_id, display_id
     type BindKey = (u64, u64, u64);
@@ -59,7 +61,7 @@ pub mod bind_map {
 
     /// 添加映射
     /// - `user1`, `user2` 一对映射
-    pub fn add_bind(user1: &User, user2: &User) {
+    pub fn add_bind(user1: &User, user2: &User) -> bool {
         let p = (user1.platform as u64, user2.platform as u64);
         let mut data = load();
         let mut add = true;
@@ -82,8 +84,9 @@ pub mod bind_map {
 
         if add {
             data.push(((p.0, user1.unique_id, user1.display_id), (p.1, user2.unique_id, user2.display_id)));
-            save(&data)
+            return save(&data);
         }
+        false
     }
 
     /// 指定一对用户删除映射
@@ -127,9 +130,26 @@ pub mod bind_map {
         }
     }
 
+    /// 初始化数据文件目录
+    /// # return
+    /// 检查与创建是否成功
+    fn init_dir() -> bool {
+        let dat_dir = Path::new(BIND_MAP_PATH).parent().unwrap();
+        if dat_dir.as_os_str().is_empty() || dat_dir.exists() {
+            return true;
+        }
+        if let Err(e) = create_dir_all(dat_dir) {
+            println!("目录'{}'创建失败！{:#?}", dat_dir.to_str().unwrap(), e);
+            return false;
+        }
+        true
+    }
+
     /// 读取，加载本地数据
-    /// TODO 构建上下文，减少侵入
     fn load() -> BindData {
+        if !init_dir() {
+            return BindData::new();
+        }
         let mut json = String::new();
         let file = OpenOptions::new()
             .read(true)
@@ -146,7 +166,7 @@ pub mod bind_map {
         };
 
         if !json.is_empty() {
-            match from_str::<BindData>(&json.as_str()) {
+            match serde_json::from_str::<BindData>(&json.as_str()) {
                 Ok(mut data) => {
                     // 删除无平台映射
                     data.retain(|((p1, ..), (p2, ..))| *p1 > 0 && *p2 > 0);
@@ -160,15 +180,18 @@ pub mod bind_map {
 
     /// 数据写入本地
     /// TODO 异步读写
-    fn save(data: &BindData) {
+    fn save(data: &BindData) -> bool {
+        if !init_dir() {
+            return false;
+        }
         let raw: String;
-        match to_string(data) {
+        match serde_json::to_string(data) {
             Ok(json) => {
                 raw = json;
             }
             Err(e) => {
                 println!("Fail to parse BindMap to JSON; {:#?}", e);
-                return;
+                return false;
             }
         }
 
@@ -181,19 +204,29 @@ pub mod bind_map {
             Ok(mut f) => {
                 if let Err(e) = f.write_all(raw.as_bytes()) {
                     println!("Can not write to file({}); {:#?}", BIND_MAP_PATH, e);
+                    return false;
                 }
             }
-            Err(e) => println!("Can not open/create data file({}); {:#?}", BIND_MAP_PATH, e),
+            Err(e) => {
+                println!("Can not open/create data file({}); {:#?}", BIND_MAP_PATH, e);
+                return false;
+            }
         };
+        true
     }
 
     #[cfg(test)]
     mod ts_bind_map {
-        use chrono::Local;
-
-        use crate::bridge::BridgeClientPlatform::*;
-        use crate::bridge::User;
-        use crate::bridge_data::bind_map::*;
+        use {
+            chrono::Local,
+            crate::{
+                bridge::{
+                    BridgeClientPlatform::*,
+                    User,
+                },
+                bridge_data::bind_map::*,
+            },
+        };
 
         #[test]
         fn add() {
