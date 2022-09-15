@@ -1,19 +1,26 @@
 ///! 接收桥收到的用户指令，加以识别和响应
-use std::sync::Arc;
 
-use chrono::Local;
-
-use bridge_cmd::bind_meta::BindMeta;
-use bridge_cmd::Cmd;
-use Cmd::*;
-
-use crate::bridge::MessageContent::Plain;
-use crate::bridge::{
-    BridgeClient, BridgeClientPlatform, BridgeMessage, MessageChain, MessageContent, User,
+use {
+    chrono::Local,
+    crate::{
+        bridge::{
+            BridgeClient,
+            BridgeClientPlatform,
+            BridgeMessage,
+            MessageChain,
+            MessageContent::Plain,
+            User,
+        },
+        bridge_cmd::{
+            bind_meta::BindMeta,
+            Cmd::*,
+        },
+        bridge_cmd,
+        bridge_data::bind_map::{add_bind, get_bind},
+        Config,
+    },
+    std::sync::Arc,
 };
-use crate::bridge_data::bind_map::{add_bind, get_bind};
-use crate::config::BridgeUser;
-use crate::{bridge_cmd, Config};
 
 type CacheBind = Vec<(i64, BindMeta)>;
 
@@ -65,10 +72,15 @@ pub async fn listen(conf: Arc<Config>, bridge: Arc<BridgeClient>) {
                     cache_msg
                 }
                 ConfirmBind => {
-                    if try_bind(&msg.user, &mut cache_bind) {
-                        "绑定完成".to_string()
-                    } else {
-                        continue;
+                    match try_bind(&msg.user, &mut cache_bind) {
+                        Ok(o) => {
+                            if o == None {
+                                continue;
+                            } else {
+                                "绑定完成".to_string()
+                            }
+                        },
+                        Err(_) => "绑定失败，请联系管理员".to_string(),
                     }
                 }
             };
@@ -84,7 +96,6 @@ pub async fn listen(conf: Arc<Config>, bridge: Arc<BridgeClient>) {
                 };
                 feedback.user.platform = BridgeClientPlatform::Cmd;
                 feedback.message_chain.push(Plain { text: result });
-                // bridge.send(feedback);
                 println!("bot feedback: {:#?}", feedback);
                 bridge.send(feedback);
             }
@@ -160,7 +171,7 @@ fn try_cache_bind<'r>(input: &'r BridgeMessage, caches: &mut CacheBind) -> &'r s
         None => return "指令错误",
         Some(a) => a,
     };
-    // 查询映射 TODO 能够检查 display_id
+    // 查询映射
     if is_mapping(&input.user, bind_to) {
         return "此用户已绑定";
     }
@@ -191,7 +202,7 @@ fn try_cache_bind<'r>(input: &'r BridgeMessage, caches: &mut CacheBind) -> &'r s
 /// 尝试建立映射
 /// - `user` 接受绑定的用户
 /// - `cache` 缓存集合
-fn try_bind(user: &User, caches: &mut CacheBind) -> bool {
+fn try_bind(user: &User, caches: &mut CacheBind) -> Result<Option<()>, ()> {
     let deadline = Local::now().timestamp_millis() - CACHE_TIMEOUT;
     let mut opt: Option<BindMeta> = None;
     caches.retain(|(t, m)| {
@@ -214,7 +225,11 @@ fn try_bind(user: &User, caches: &mut CacheBind) -> bool {
             "{}({}) bind to {}",
             from.platform, from.unique_id, user.name
         );
-        add_bind(&from, user);
+        return if add_bind(&from, user) {
+            Ok(Some(()))
+        } else {
+            Err(())
+        }
     }
-    opt != None
+    Ok(None)
 }
