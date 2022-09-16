@@ -5,7 +5,6 @@ use {
     std::{
         fs::{create_dir_all, OpenOptions},
         io::{Read, Write},
-        path,
         path::Path,
     },
 };
@@ -22,24 +21,24 @@ pub mod bind_map {
 
     /// 尝试获取映射
     /// # 参数
-    /// - `user` 目标用户
-    /// - `to_platform` 指向绑定的平台
+    /// - `from(platform, unique/display_id)` 目标用户（客户端平台，系统/显示id）
+    /// - `to_p` 指向绑定的平台
     /// # 返回
     /// 含部分有效字段的 User: platform, unique_id, display_id
-    pub fn get_bind(user: &User, to_platform: BCP) -> Option<User> {
+    pub fn get_bind(from: (BCP, u64), to_p: BCP) -> Option<User> {
         // 有必要自绑定吗？
-        if to_platform == user.platform {
+        if to_p == from.0 {
             return None;
         }
-        let pp = user.platform as u64 | to_platform as u64;
+        let pp = from.0 as u64 | to_p as u64;
         let data = load();
 
         for (a @ (p1, u1, d1), b @ (p2, u2, d2)) in data.iter() {
             if (p1 | p2) == pp {
                 let f: Option<BindKey> =
-                    if *u1 == user.unique_id || *d1 == user.display_id {
+                    if *u1 == from.1 || *d1 == from.1 {
                         Some(*b)
-                    } else if *u2 == user.unique_id || *d2 == user.display_id {
+                    } else if *u2 == from.1 || *d2 == from.1 {
                         Some(*a)
                     } else {
                         None
@@ -259,13 +258,13 @@ pub mod bind_map {
                 platform: QQ,
             };
             let st = Local::now().timestamp_millis();
-            match get_bind(&u1, QQ) {
+            match get_bind((u1.platform, u1.unique_id), QQ) {
                 None => println!("{} no mapping", u1.unique_id),
-                Some(u2) => println!("{} map to {}", u1.unique_id, u2.unique_id),
+                Some(ou) => println!("{} map to {}", u1.unique_id, ou.unique_id),
             }
-            match get_bind(&u2, Discord) {
+            match get_bind((u2.platform, u2.unique_id), Discord) {
                 None => println!("{} no mapping user", u2.unique_id),
-                Some(u3) => println!("{} map to {}", u2.unique_id, u3.unique_id),
+                Some(ou) => println!("{} map to {}", u2.unique_id, ou.unique_id),
             }
             let et = Local::now().timestamp_millis();
             println!("get 2 mapping: {}ms", et - st);

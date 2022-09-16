@@ -143,14 +143,14 @@ fn parse_bind_args(args: &Vec<String>) -> Option<(BridgeClientPlatform, u64)> {
 }
 
 /// 查询映射
-/// - `user` 请求者信息
+/// - `from` 请求者信息
 /// - `to` 指令参数：绑定的平台和用户id
-fn is_mapping(user: &User, to: (BridgeClientPlatform, u64)) -> bool {
-    if let Some(mapping) = get_bind(user, to.0) {
+fn is_mapping(from: (BridgeClientPlatform, u64), to: (BridgeClientPlatform, u64)) -> bool {
+    if let Some(mapping) = get_bind(from, to.0) {
         if mapping.unique_id == to.1 || mapping.display_id == to.1 {
             println!(
-                "'{}' 已映射至 '{} {}'",
-                user.name, mapping.platform, mapping.unique_id
+                "'{} {}' 已映射至 '{} {}'",
+                from.0, from.1, mapping.platform, mapping.unique_id
             );
             return true;
         }
@@ -172,7 +172,7 @@ fn try_cache_bind<'r>(input: &'r BridgeMessage, caches: &mut CacheBind) -> &'r s
         Some(a) => a,
     };
     // 查询映射
-    if is_mapping(&input.user, bind_to) {
+    if is_mapping((input.user.platform, input.user.unique_id), bind_to) {
         return "此用户已绑定";
     }
 
