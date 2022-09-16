@@ -19,7 +19,7 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: lock
-      run: ll target/release
+      run: ls -l target/release
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.0
       with:
