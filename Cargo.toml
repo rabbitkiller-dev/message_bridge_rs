@@ -6,6 +6,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+time = "0.3.14"
+tracing = "0.1.36"
+color-eyre = "0.6.2"
+tracing-error = "0.2.0"
+tracing-appender = "0.2.2"
+tracing-subscriber = { version = "0.3.15", features = [
+    "env-filter",
+    "local-time",
+    "time",
+] }
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1.14.0", features = ["full"] }
 serde_json = "1.0"

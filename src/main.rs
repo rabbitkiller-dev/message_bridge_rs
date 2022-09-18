@@ -1,3 +1,9 @@
+use std::sync::{Arc, Mutex};
+
+use tracing::{debug, info};
+
+use config::*;
+
 mod bridge;
 mod bridge_cmd;
 mod bridge_dc;
@@ -6,18 +12,19 @@ mod bridge_qq;
 mod cmd_adapter;
 mod config;
 mod utils;
-
+mod logger;
 mod bridge_data;
-
-use config::*;
-use std::sync::{Arc, Mutex};
 
 pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 守卫日志文件。如果被drop，日志将无法写入到文件
+    let _logger_guards = logger::init_logger();
     let config = Arc::new(Config::new());
-    let mut bridge_service = bridge::BridgeService::new();
+    debug!("config: {:#?}", config);
+    info!("config loaded");
+    let bridge_service = bridge::BridgeService::new();
     let bridge_service = Arc::new(Mutex::new(bridge_service));
     let bridge_dc_client =
         bridge::BridgeService::create_client("bridge_dc_client", bridge_service.clone());
@@ -26,6 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bridge_cmd_adapter =
         bridge::BridgeService::create_client("bridge_cmd_adapter", bridge_service.clone());
     // let a = Some(bridge_service.clone());
+    info!("bridge ready");
 
     tokio::select! {
         _ = bridge_dc::start(config.clone(), bridge_dc_client) => {},
@@ -40,6 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[allow(non_snake_case)]
 mod test {
     use super::*;
+
     macro_rules! aw {
         ($e:expr) => {
             tokio_test::block_on($e)
