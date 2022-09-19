@@ -89,6 +89,7 @@ mod ts_bridge_client_platform {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeMessage {
+    pub id: String,
     pub bridge_config: BridgeConfig,
     pub message_chain: MessageChain,
     pub user: User,
@@ -163,7 +164,7 @@ pub struct BridgeClient {
 
 impl BridgeClient {
     pub fn new(name: &str, bridge: Arc<Mutex<BridgeService>>) -> Self {
-        let (sender, mut receiver) = broadcast::channel(32);
+        let (sender, receiver) = broadcast::channel(32);
         BridgeClient {
             bridge: bridge,
             name: name.to_string(),
@@ -180,15 +181,6 @@ impl BridgeClient {
                     println!("消息中转异常：{:#?}", e);
                 }
             }
-        } // for
-    }
-
-    pub fn broadcast(&self, message: BridgeMessage) {
-        let bridge = self.bridge.lock().unwrap();
-        for client in bridge.clients.iter() {
-            if let Err(e) = client.sender.send(message.clone()) {
-                println!("消息中转异常：{:#?}", e);
-            }
-        } // for
+        }
     }
 }

@@ -4,12 +4,12 @@ use regex::Regex;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use mirai_rs::api::MessageEvent;
-use mirai_rs::EventHandler;
 use mirai_rs::message::{MessageChain, MessageContent};
+use mirai_rs::EventHandler;
 use mirai_rs::Mirai;
 
-use crate::{bridge, Config, utils};
 use crate::bridge::BridgeClientPlatform;
+use crate::{bridge, utils, Config};
 
 pub struct MiraiBridgeHandler {
     pub config: Arc<Config>,
@@ -45,8 +45,9 @@ pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai
 
         for chain in message.message_chain.iter() {
             match chain {
-                bridge::MessageContent::Plain { text } =>
-                    message_chain.push(MessageContent::Plain { text: text.clone() }),
+                bridge::MessageContent::Plain { text } => {
+                    message_chain.push(MessageContent::Plain { text: text.clone() })
+                }
                 bridge::MessageContent::Image { url, .. } => {
                     trace!(?url, "图片");
                     message_chain.push(MessageContent::Image {
@@ -107,12 +108,12 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
         config.miraiConfig.port,
         &config.miraiConfig.verifyKey,
     )
-        .bind_qq(3245538509)
-        .event_handler(MiraiBridgeHandler {
-            config: config.clone(),
-            bridge: bridge.clone(),
-        })
-        .await;
+    .bind_qq(3245538509)
+    .event_handler(MiraiBridgeHandler {
+        config: config.clone(),
+        bridge: bridge.clone(),
+    })
+    .await;
     let http = mirai.get_http().await;
     info!("qq(mirai) ready");
 
@@ -135,7 +136,10 @@ impl EventHandler for MiraiBridgeHandler {
     async fn message(&self, ctx: &Mirai, msg: MessageEvent) {
         if let MessageEvent::GroupMessage(group_message) = msg {
             // 查询这个频道是否需要通知到群
-            let bridge_config = match self.config.bridges.iter()
+            let bridge_config = match self
+                .config
+                .bridges
+                .iter()
                 .find(|bridge| group_message.sender.group.id == bridge.qqGroup && bridge.enable)
             {
                 Some(bridge_config) => bridge_config,
@@ -161,6 +165,7 @@ impl EventHandler for MiraiBridgeHandler {
             debug!("qq user: {:#?}", user);
 
             let mut bridge_message = bridge::BridgeMessage {
+                id: uuid::Uuid::new_v4().to_string(),
                 bridge_config: bridge_config.clone(),
                 message_chain: Vec::new(),
                 user,

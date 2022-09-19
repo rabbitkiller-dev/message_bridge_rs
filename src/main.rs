@@ -1,21 +1,29 @@
-use std::sync::{Arc, Mutex};
+#[macro_use]
+extern crate lazy_static;
 
+use std::sync::{Arc, Mutex};
 use tracing::{debug, info};
 
 use config::*;
 
 mod bridge;
 mod bridge_cmd;
+mod bridge_data;
 mod bridge_dc;
 mod bridge_log;
+mod bridge_message_history;
 mod bridge_qq;
 mod cmd_adapter;
 mod config;
-mod utils;
 mod logger;
-mod bridge_data;
+mod utils;
 
 pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+lazy_static! {
+    // static ref BRIDGE_MESSAGE_HISTORY: Arc<Mutex<bridge_message_history::BridgeMessageHistory>> =
+    //     Arc::new(Mutex::new(bridge_message_history::BridgeMessageHistory));
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

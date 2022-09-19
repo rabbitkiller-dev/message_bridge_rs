@@ -1,24 +1,16 @@
 ///! 接收桥收到的用户指令，加以识别和响应
-
 use {
-    chrono::Local,
     crate::{
         bridge::{
-            BridgeClient,
-            BridgeClientPlatform,
-            BridgeMessage,
-            MessageChain,
-            MessageContent::Plain,
+            BridgeClient, BridgeClientPlatform, BridgeMessage, MessageChain, MessageContent::Plain,
             User,
         },
-        bridge_cmd::{
-            bind_meta::BindMeta,
-            Cmd::*,
-        },
         bridge_cmd,
+        bridge_cmd::{bind_meta::BindMeta, Cmd::*},
         bridge_data::bind_map::{add_bind, get_bind},
         Config,
     },
+    chrono::Local,
     std::sync::Arc,
 };
 
@@ -71,18 +63,16 @@ pub async fn listen(conf: Arc<Config>, bridge: Arc<BridgeClient>) {
                     }
                     cache_msg
                 }
-                ConfirmBind => {
-                    match try_bind(&msg.user, &mut cache_bind) {
-                        Ok(o) => {
-                            if o == None {
-                                continue;
-                            } else {
-                                "绑定完成".to_string()
-                            }
-                        },
-                        Err(_) => "绑定失败，请联系管理员".to_string(),
+                ConfirmBind => match try_bind(&msg.user, &mut cache_bind) {
+                    Ok(o) => {
+                        if o == None {
+                            continue;
+                        } else {
+                            "绑定完成".to_string()
+                        }
                     }
-                }
+                    Err(_) => "绑定失败，请联系管理员".to_string(),
+                },
             };
             if result.is_empty() {
                 continue;
@@ -90,6 +80,7 @@ pub async fn listen(conf: Arc<Config>, bridge: Arc<BridgeClient>) {
             let bc = conf.bridges.iter().find(|b| b.enable);
             if let Some(bc) = bc {
                 let mut feedback = BridgeMessage {
+                    id: uuid::Uuid::new_v4().to_string(),
                     bridge_config: bc.clone(),
                     message_chain: Vec::new(),
                     user: msg.user.clone(),
@@ -229,7 +220,7 @@ fn try_bind(user: &User, caches: &mut CacheBind) -> Result<Option<()>, ()> {
             Ok(Some(()))
         } else {
             Err(())
-        }
+        };
     }
     Ok(None)
 }

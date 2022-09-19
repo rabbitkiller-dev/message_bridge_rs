@@ -8,13 +8,14 @@ use serenity::model::channel::AttachmentType;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::model::guild::Member;
-use serenity::model::Timestamp;
 use serenity::model::webhook::Webhook;
+use serenity::model::Timestamp;
 use serenity::prelude::*;
-use tracing::{debug, debug_span, error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 
-use crate::{bridge, Config};
 use crate::bridge::BridgeClientPlatform;
+use crate::bridge_message_history::{BridgeMessageHistory, Platform};
+use crate::{bridge, Config};
 
 /**
  *
@@ -30,8 +31,8 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
             message.bridge_config.discord.id,
             message.bridge_config.discord.token.as_str(),
         )
-            .await
-            .unwrap();
+        .await
+        .unwrap();
         debug!("discord info: {:#?}", webhook);
         let guild_id = webhook.guild_id.unwrap();
 
@@ -61,7 +62,9 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                         Some(caps) => {
                             let name = caps.get(1).unwrap();
                             let dis = caps.get(2).unwrap();
-                            let member = find_member_by_name(&http, guild_id.0, name.as_str(), dis.as_str()).await;
+                            let member =
+                                find_member_by_name(&http, guild_id.0, name.as_str(), dis.as_str())
+                                    .await;
                             if let Some(member) = member {
                                 content.push(format!("<@{}>", member.user.id.0));
                             } else {
@@ -85,7 +88,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                 .get_channel(message.bridge_config.discord.channelId)
                 .await
             {
-                Ok(channel) =>
+                Ok(channel) => {
                     if let Err(err) = channel
                         .id()
                         .send_message(&http, |w| w.content(content.join("")))
@@ -95,6 +98,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                     } else {
                         debug!("指令反馈完成");
                     }
+                }
                 Err(err) => error!(?err, "获取 discord 频道失败！"),
             }
             continue;
@@ -166,10 +170,18 @@ impl EventHandler for Handler {
         }
 
         // 收到桥配置的webhook消息, 不要继续以免消息循环
-        if self.config.bridges.iter().any(|bridge| msg.author.id == bridge.discord.id) {
+        if self
+            .config
+            .bridges
+            .iter()
+            .any(|bridge| msg.author.id == bridge.discord.id)
+        {
             return;
         }
-        let bridge_config = match self.config.bridges.iter()
+        let bridge_config = match self
+            .config
+            .bridges
+            .iter()
             .find(|bridge| msg.channel_id == bridge.discord.channelId && bridge.enable)
         {
             Some(c) => c,
@@ -192,21 +204,28 @@ impl EventHandler for Handler {
         }
         debug!("discord user: {:#?}", user);
         //         bridge_log::BridgeLog::write_log(
-//             format!(
-//                 r#"discord桥要发送的消息
-// {}
-// {}"#,
-//                 user.name, msg.content
-//             )
-//                 .as_str(),
-//         );
+        //             format!(
+        //                 r#"discord桥要发送的消息
+        // {}
+        // {}"#,
+        //                 user.name, msg.content
+        //             )
+        //                 .as_str(),
+        //         );
         info!("{} -> {}", user.name, msg.content);
 
         let mut bridge_message = bridge::BridgeMessage {
+            id: uuid::Uuid::new_v4().to_string(),
             bridge_config: bridge_config.clone(),
             message_chain: Vec::new(),
             user,
         };
+        // 记录消息id
+        BridgeMessageHistory::insert(
+            &bridge_message.id,
+            Platform::Discord,
+            msg.id.0.to_string().as_str(),
+        );
 
         let result = crate::utils::parser_message(&msg.content);
         for ast in result {
@@ -298,13 +317,11 @@ impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("准备连接伺服器：{:?}", ready.guilds);
         for bridge_config in self.config.bridges.iter() {
-            match ctx.http
-                .get_channel(bridge_config.discord.channelId)
-                .await
-            {
+            match ctx.http.get_channel(bridge_config.discord.channelId).await {
                 Ok(channel) => {
                     let msg = "Message Bridge正在运行中...";
-                    let resp = channel.id()
+                    let resp = channel
+                        .id()
                         .send_message(&ctx.http, |m| {
                             m.content(msg);
                             m
