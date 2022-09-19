@@ -56,6 +56,7 @@ pub fn init_logger() -> (WorkerGuard, WorkerGuard) {
     // 标准输出
     let timer = get_timer(t_fmt2);
     let std_out = fmt::layer()
+        .compact()
         .with_timer(timer)
         .with_ansi(true)
         .with_writer(std::io::stdout);
