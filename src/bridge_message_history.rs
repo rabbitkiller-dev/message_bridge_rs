@@ -6,25 +6,34 @@ pub struct BridgeMessageHistory;
 
 impl BridgeMessageHistory {
     pub async fn insert(id: &str, platform: Platform, message_id: &str) -> Result<(), String> {
-        let mut history = History {
-            id: id.to_string(),
-            message: vec![],
+        let mut list = BridgeMessageHistory::find_all().await;
+
+        let history = match list.iter_mut().find(|history| history.id == id) {
+            Some(history) => history,
+            None => {
+                let history = History {
+                    id: id.to_string(),
+                    message: vec![],
+                };
+                list.push(history);
+                list.last_mut().unwrap()
+            }
         };
+        let exsit = history
+            .message
+            .iter()
+            .find(|msg| msg.message_id == message_id && msg.platform == platform);
+
+        if let Some(_) = exsit {
+            println!("{:?}", exsit);
+            return Result::Err("插入相同的消息id".to_string());
+        }
+
         let message = HisotryMessage {
             platform: platform,
             message_id: message_id.to_string(),
         };
         history.message.push(message);
-
-        let mut list = BridgeMessageHistory::find_all().await;
-
-        let exsit = list.iter().find(|history| history.id == id);
-
-        if let Some(_) = exsit {
-            return Result::Err("插入相同的消息id".to_string());
-        }
-
-        list.push(history);
 
         BridgeMessageHistory::save(list).await;
 
@@ -46,11 +55,24 @@ impl BridgeMessageHistory {
             .unwrap();
     }
 
-    pub fn find_by_message_id() {}
+    pub async fn find_by_message_id(platform: Platform, message_id: &str) -> Option<History> {
+        let list = BridgeMessageHistory::find_all().await;
+
+        for history in list {
+            let find = history
+                .message
+                .iter()
+                .find(|msg| msg.message_id == message_id && msg.platform == platform);
+
+            if let Some(_) = find {
+                return Some(history);
+            }
+        }
+        None
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Platform {
     Discord,
     QQ,
@@ -66,4 +88,21 @@ pub struct History {
 pub struct HisotryMessage {
     platform: Platform,
     message_id: String,
+}
+
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_inser() {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                BridgeMessageHistory::insert("bridge_1", Platform::QQ, "qq_1")
+                    .await
+                    .unwrap();
+            })
+    }
 }

@@ -9,6 +9,7 @@ use mirai_rs::EventHandler;
 use mirai_rs::Mirai;
 
 use crate::bridge::BridgeClientPlatform;
+use crate::bridge_message_history::{BridgeMessageHistory, Platform};
 use crate::{bridge, utils, Config};
 
 pub struct MiraiBridgeHandler {
@@ -91,10 +92,21 @@ pub async fn bridge_qq(bridge: Arc<bridge::BridgeClient>, mirai: mirai_rs::mirai
         let resp = mirai
             .send_group_message(message_chain, message.bridge_config.qqGroup)
             .await;
-        if let Err(err) = resp {
-            error!(?err, "消息同步失败！")
-        } else {
-            info!("已同步消息")
+
+        match resp {
+            Ok(result) => {
+                BridgeMessageHistory::insert(
+                    &message.id,
+                    Platform::QQ,
+                    result.messageId.to_string().as_str(),
+                )
+                .await
+                .unwrap();
+                info!("已同步消息")
+            }
+            Err(err) => {
+                error!(?err, "消息同步失败！")
+            }
         }
     }
 }
@@ -170,9 +182,19 @@ impl EventHandler for MiraiBridgeHandler {
                 message_chain: Vec::new(),
                 user,
             };
+
             for chain in &group_message.message_chain {
                 match chain {
-                    MessageContent::Source { .. } => {}
+                    MessageContent::Source { id, time: _ } => {
+                        let id = format!("{}", id);
+                        // 记录消息id
+                        BridgeMessageHistory::insert(
+                            &bridge_message.id,
+                            Platform::QQ,
+                            id.as_str(),
+                        )
+                        .await.unwrap();
+                    }
                     MessageContent::Plain { text } => {
                         trace!("plain: {}", text);
                         let result = utils::parser_message(text);

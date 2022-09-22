@@ -105,7 +105,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
         }
 
         let resp = webhook
-            .execute(&http, false, |w| {
+            .execute(&http, true, |w| {
                 // 配置发送者头像
                 if let Some(url) = &message.user.avatar_url {
                     w.avatar_url(url.as_str());
@@ -119,10 +119,25 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                 w.add_files(fils).content(content.join(""))
             })
             .await;
-        if let Err(err) = resp {
-            error!(?err, "消息同步失败！")
-        } else {
-            info!("已同步消息")
+
+        match resp {
+            Ok(result) => {
+                if let Some(msg) = result {
+                    BridgeMessageHistory::insert(
+                        &message.id,
+                        Platform::Discord,
+                        msg.id.0.to_string().as_str(),
+                    )
+                    .await
+                    .unwrap();
+                } else {
+                    error!("同步的消息没有返回消息id")
+                }
+                info!("已同步消息")
+            }
+            Err(err) => {
+                error!(?err, "消息同步失败！")
+            }
         }
     }
 }
@@ -225,7 +240,9 @@ impl EventHandler for Handler {
             &bridge_message.id,
             Platform::Discord,
             msg.id.0.to_string().as_str(),
-        );
+        )
+        .await
+        .unwrap();
 
         let result = crate::utils::parser_message(&msg.content);
         for ast in result {

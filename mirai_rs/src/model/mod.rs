@@ -6,9 +6,9 @@ use serde_json::Value;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SendGroupMessageResponse {
-    code: u32,
-    msg: String,
-    messageId: u64,
+    pub code: u32,
+    pub msg: String,
+    pub messageId: u64,
 }
 
 /**
