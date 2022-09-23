@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::ops::{BitOr, Index};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
@@ -21,17 +22,26 @@ impl Display for ParseEnumErr {
 
 /// 客户端所属平台
 /// # implement
-/// ## [`FromStr@from_str`]
+/// ## [`FromStr`]
 /// 凭借该特征可以将 str 解析为枚举
 /// ```
 /// println!("{:?}", "qq".parse::<BridgeClientPlatform>());
 /// ```
+/// ## [`BitOr`]
+/// 借此特征简化枚举的“位标识”操作
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize)]
 #[repr(u64)]
 pub enum BridgeClientPlatform {
     Discord = 1 << 0,
     QQ = 1 << 1,
     Cmd = 1 << 2,
+}
+
+impl BitOr for BridgeClientPlatform {
+    type Output = u64;
+    fn bitor(self, rhs: Self) -> Self::Output {
+        self as u64 | rhs as u64
+    }
 }
 
 impl Display for BridgeClientPlatform {

@@ -26,7 +26,7 @@ pub mod bind_map {
         if to_p == from.0 {
             return None;
         }
-        let pp = from.0 as u64 | to_p as u64;
+        let pp = from.0 | to_p;
         let data = load();
 
         for (a @ (p1, u1, d1), b @ (p2, u2, d2)) in data.iter() {
@@ -86,7 +86,7 @@ pub mod bind_map {
     pub fn rm_bind(from: (BCP, u64), to_p: BCP) -> bool {
         let mut data = load();
         let len = data.len();
-        let pp = from.0 as u64 | to_p as u64;
+        let pp = from.0 | to_p;
 
         data.retain(|((p1, u1, d1), (p2, u2, d2))| {
             if (p1 | p2) == pp {
@@ -109,7 +109,7 @@ pub mod bind_map {
     pub fn rm_bind_pair(user1: &User, user2: &User) -> bool {
         let mut data = load();
         let len = data.len();
-        let pp = user1.platform as u64 | user2.platform as u64;
+        let pp = user1.platform | user2.platform;
 
         data.retain(|((p1, u1, d1), (p2, u2, d2))| {
             if (p1 | p2) == pp {
