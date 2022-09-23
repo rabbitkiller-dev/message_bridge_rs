@@ -1,8 +1,10 @@
-///! 集中定义用户指令
+//! 集中定义用户指令
+
+use lazy_static::lazy_static;
+
 use regex::Regex;
 
-use crate::bridge::{MessageChain, MessageContent, User};
-use crate::bridge_cmd::bind_meta::BindMeta;
+use crate::bridge::{MessageChain, MessageContent};
 use crate::bridge_cmd::Cmd::*;
 
 /// 指令类别
@@ -11,28 +13,38 @@ pub enum Cmd {
     Help,
     /// dc,qq互相绑定
     Bind,
+    /// 解除绑定
+    Unbind,
     /// 确认绑定
     ConfirmBind,
 }
 
+/// 指令元素
+type CmdMeta = (Cmd, Option<Vec<String>>);
+
 /// 识别指令类别
 /// - `token_chain` 消息链
-pub fn kind(token_chain: &MessageChain) -> Option<Cmd> {
+pub fn kind(token_chain: &MessageChain) -> Option<CmdMeta> {
     let mut is_cmd = false;
     for ctx in token_chain {
         if let MessageContent::Plain { text } = ctx {
-            if !is_cmd && !text.starts_with('!') {
+            if !is_cmd && !text.starts_with('!') && !text.starts_with('！') {
                 break;
             }
             is_cmd = true;
-            if Bind.get_regex().is_match(text) {
-                return Some(Bind);
-            }
             if ConfirmBind.get_regex().is_match(text) {
-                return Some(ConfirmBind);
+                return Some((ConfirmBind, None));
             }
             if Help.get_regex().is_match(text) {
-                return Some(Help);
+                return Some((Help, None));
+            }
+
+            if let Some(param) = Bind.get_args(text) {
+                return Some((Bind, Some(param)));
+            }
+
+            if let Some(param) = Unbind.get_args(text) {
+                return Some((Unbind, Some(param)));
             }
         };
     }
@@ -41,33 +53,42 @@ pub fn kind(token_chain: &MessageChain) -> Option<Cmd> {
 
 impl Cmd {
     /// 获取指令正则表达式
-    /// TODO 改为静态 Regex
-    pub fn get_regex(&self) -> Regex {
-        let r = match self {
-            // !绑定 平台 用户id
-            Help => r"\A!(帮助|help)",
-            Bind => r"\A!绑定 (\S+?) (\d{4,20})\z",
-            ConfirmBind => r"\A!确认绑定\z",
-        };
-        Regex::new(r).unwrap()
+    pub fn get_regex(&self) -> &Regex {
+        lazy_static! {
+            static ref REGEX_HELP: Regex = Regex::new(r"^[!！](?:帮助|help)").unwrap();
+            static ref REGEX_BIND: Regex = Regex::new(r"^[!！](?:绑定|bind) (\S+?) (\d{4,20})$").unwrap();
+            static ref REGEX_CONFIRM_BIND: Regex = Regex::new(r"^[!！](?:确认绑定|confirm-bind)$").unwrap();
+            static ref REGEX_UNBIND: Regex = Regex::new(r"^[!！](?:解除绑定|unbind) (\S+?)$").unwrap();
+        }
+
+        match self {
+            Help => &REGEX_HELP,
+            Bind => &REGEX_BIND,
+            Unbind => &REGEX_UNBIND,
+            ConfirmBind => &REGEX_CONFIRM_BIND,
+        }
     }
 
     /// 解析指令，提取参数
     /// - `input` 用户输入（文本）
-    pub fn get_args(&self, input: &str) -> Vec<String> {
-        let mut args = Vec::with_capacity(8);
+    pub fn get_args(&self, input: &str) -> Option<Vec<String>> {
+        let mut param = Vec::with_capacity(8);
         for cap in self.get_regex().captures_iter(input.trim()) {
-            for (x, mat) in cap.iter().enumerate() {
+            let ls = cap.iter().enumerate();
+            if ls.len() < 2 {
+                return None;
+            }
+            for (x, mat) in ls {
                 // cap[0] 是整句
                 if x < 1 {
                     continue;
                 }
                 if let Some(_) = mat {
-                    args.push(cap[x].to_string())
+                    param.push(cap[x].to_string());
                 }
             }
         }
-        args
+        Some(param)
     }
 } // impl Cmd
 
@@ -81,7 +102,7 @@ mod ts_cmd_regex {
         println!("inp: '{}'", inp);
         let args = Bind.get_args(inp);
         for (x, a) in args.iter().enumerate() {
-            println!("{}: '{}'", x, a);
+            println!("{}: {:?}", x, a);
         }
     }
 }

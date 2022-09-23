@@ -1,13 +1,9 @@
-///! 定义桥的数据结构，读写方法
+//! 定义桥的数据结构，读写方法
 
-use {
-    crate::bridge::{BridgeClientPlatform as BCP, User},
-    std::{
-        fs::{create_dir_all, OpenOptions},
-        io::{Read, Write},
-        path::Path,
-    },
-};
+use crate::bridge::{BridgeClientPlatform as BCP, User};
+use std::fs::{create_dir_all, OpenOptions};
+use std::io::{Read, Write};
+use std::path::Path;
 
 ///! 定义绑定映射
 pub mod bind_map {
@@ -60,7 +56,7 @@ pub mod bind_map {
 
     /// 添加映射
     /// - `user1`, `user2` 一对映射
-    pub fn add_bind(user1: &User, user2: &User) -> bool {
+    pub fn add_bind(user1: &User, user2: &User) {
         let p = (user1.platform as u64, user2.platform as u64);
         let mut data = load();
         let mut add = true;
@@ -83,14 +79,34 @@ pub mod bind_map {
 
         if add {
             data.push(((p.0, user1.unique_id, user1.display_id), (p.1, user2.unique_id, user2.display_id)));
-            return save(&data);
+            save(&data);
         }
-        false
+    }
+
+    pub fn rm_bind(from: (BCP, u64), to_p: BCP) -> bool {
+        let mut data = load();
+        let len = data.len();
+        let pp = from.0 as u64 | to_p as u64;
+
+        data.retain(|((p1, u1, d1), (p2, u2, d2))| {
+            if (p1 | p2) == pp {
+                !(*u1 == from.1 || *u2 == from.1 || *d1 == from.1 || *d2 == from.1)
+            } else {
+                true
+            }
+        });
+        if len > data.len() {
+            save(&data);
+            true
+        } else {
+            false
+        }
     }
 
     /// 指定一对用户删除映射
     /// - `user1`, `user2` 一对映射；移除映射需成对操作
-    pub fn rm_bind_pair(user1: &User, user2: &User) {
+    #[allow(unused)]
+    pub fn rm_bind_pair(user1: &User, user2: &User) -> bool {
         let mut data = load();
         let len = data.len();
         let pp = user1.platform as u64 | user2.platform as u64;
@@ -107,11 +123,15 @@ pub mod bind_map {
         });
         if len > data.len() {
             save(&data);
+            true
+        } else {
+            false
         }
     }
 
     /// 指定用户删除其所有关联映射
     /// - `user` 目标用户
+    #[allow(unused)]
     pub fn rm_user_all_bind(user: &User) {
         let mut data = load();
         let len = data.len();
