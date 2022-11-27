@@ -25,13 +25,17 @@ type CmdMeta = (Cmd, Option<Vec<String>>);
 /// 识别指令类别
 /// - `token_chain` 消息链
 pub fn kind(token_chain: &MessageChain) -> Option<CmdMeta> {
-    let mut is_cmd = false;
+    // 只匹配一次
+    let mut once = false;
     for ctx in token_chain {
+        if once {
+            break;
+        }
         if let MessageContent::Plain { text } = ctx {
-            if !is_cmd && !text.starts_with('!') && !text.starts_with('！') {
+            if !(text.starts_with('!') && text.starts_with('！')) {
                 break;
             }
-            is_cmd = true;
+            once = true;
             if ConfirmBind.get_regex().is_match(text) {
                 return Some((ConfirmBind, None));
             }
@@ -56,9 +60,12 @@ impl Cmd {
     pub fn get_regex(&self) -> &Regex {
         lazy_static! {
             static ref REGEX_HELP: Regex = Regex::new(r"^[!！](?:帮助|help)").unwrap();
-            static ref REGEX_BIND: Regex = Regex::new(r"^[!！](?:绑定|bind) (\S+?) (\d{4,20})$").unwrap();
-            static ref REGEX_CONFIRM_BIND: Regex = Regex::new(r"^[!！](?:确认绑定|confirm-bind)$").unwrap();
-            static ref REGEX_UNBIND: Regex = Regex::new(r"^[!！](?:解除绑定|unbind) (\S+?)$").unwrap();
+            static ref REGEX_BIND: Regex =
+                Regex::new(r"^[!！](?:绑定|bind) (\S+?) (\d{4,20})$").unwrap();
+            static ref REGEX_CONFIRM_BIND: Regex =
+                Regex::new(r"^[!！](?:确认绑定|confirm-bind)$").unwrap();
+            static ref REGEX_UNBIND: Regex =
+                Regex::new(r"^[!！](?:解除绑定|unbind) (\S+?)$").unwrap();
         }
 
         match self {
