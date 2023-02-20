@@ -143,6 +143,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
 }
 
 pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
+    tracing::info!("[DC] 初始化DC桥");
     let token = &config.discordConfig.botToken;
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::GUILD_MEMBERS
@@ -158,14 +159,14 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
         .expect("Err creating client");
 
     let cache = client.cache_and_http.clone();
-    info!("bridge_dc ready");
+    tracing::info!("[DC] Discord客户端连接成功");
 
     tokio::select! {
         _ = client.start() => {
-            warn!("dc client exited");
+            tracing::warn!("[DC] Discord客户端退出");
         },
         _ = dc(bridge.clone(), cache.http.clone()) => {
-            warn!("bridge_dc listening is closed");
+            tracing::warn!("[DC] Discord桥关闭");
         },
     }
 }
@@ -244,7 +245,7 @@ impl EventHandler for Handler {
         .await
         .unwrap();
 
-        let result = crate::utils::parser_message(&msg.content);
+        let result = crate::utils::parser_message(&msg.content).await;
         for ast in result {
             match ast {
                 crate::utils::MarkdownAst::Plain { text } => {
@@ -332,7 +333,7 @@ impl EventHandler for Handler {
 
     #[instrument(skip_all, target = "bridge_dc")]
     async fn ready(&self, ctx: Context, ready: Ready) {
-        info!("准备连接伺服器：{:?}", ready.guilds);
+        tracing::warn!("(Guild={:?})准备连接Discord伺服器", ready.guilds);
         for bridge_config in self.config.bridges.iter() {
             match ctx.http.get_channel(bridge_config.discord.channelId).await {
                 Ok(channel) => {

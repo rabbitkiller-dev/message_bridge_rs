@@ -1,11 +1,8 @@
-use js_sandbox::{AnyError, Script};
-use reqwest::Client;
 use serde::Deserialize;
 use serde::Serialize;
 use std::io::Cursor;
-// use std::{fs::File, io::Write};
 use std::path;
-use tokio::fs::{self, File};
+use tokio::fs::File;
 
 pub async fn download_and_cache(url: &str) -> Result<String, reqwest::Error> {
     init().await;
@@ -58,11 +55,17 @@ pub enum MarkdownAst {
 /**
  * 将dc和qq消息进行解析
  */
-pub fn parser_message(content: &str) -> Vec<MarkdownAst> {
-    let str = std::fs::read_to_string("./mde.js").unwrap();
-    let mut script = Script::from_string(str.as_str()).unwrap();
-
-    let mut result: Vec<MarkdownAst> = script.call("parserBridgeMessage", &content).unwrap();
+pub async fn parser_message(content: &str) -> Vec<MarkdownAst> {
+    let client = reqwest::Client::new();
+    let mut result: Vec<MarkdownAst> = client
+        .post("http://localhost:3000/parse-discord-markdown")
+        .body(content.to_string())
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
 
     if let Some(ast) = result.last() {
         if let MarkdownAst::Plain { text } = ast {
@@ -82,16 +85,27 @@ pub fn parser_message(content: &str) -> Vec<MarkdownAst> {
     result
 }
 
-/**
- * 测试parser_message
- */
 #[test]
-pub fn test_() {
-    let vec = parser_message("<@724827488588660837>");
-    println!("{:?}", vec);
-    let vec = parser_message(
-        r#"@[DC] 6uopdong#4700
-    !绑定 qq 1261972160"#,
-    );
-    println!("{:?}", vec);
+fn test_send_post_parse_discord_message() {
+    let message = r#"@[DC] 6uopdong#4700
+    !绑定 qq 1261972160"#;
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            println!("发送");
+            let client = reqwest::Client::new();
+            let resp: Vec<MarkdownAst> = client
+                .post("http://localhost:3000/parse-discord-markdown")
+                .body(message)
+                .send()
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap();
+
+            println!("{:?}", resp);
+        })
 }

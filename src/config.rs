@@ -1,6 +1,6 @@
-use std::fs;
 use serde::Deserialize;
 use serde::Serialize;
+use std::fs;
 
 #[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
 pub struct Config {
@@ -23,7 +23,7 @@ impl Config {
         self.bridgesUsers.push(BridgeUser {
             id: uuid::Uuid::new_v4().to_string(),
             qq,
-            discordId: discord_id
+            discordId: discord_id,
         });
         let content = serde_json::to_string(&self).unwrap();
         fs::write("./config.json", content).unwrap();
@@ -61,10 +61,8 @@ pub struct DiscordBridgeConfig {
 pub struct BridgeUser {
     id: String,
     qq: u64,
-    discordId: u64
+    discordId: u64,
 }
-
-
 
 #[cfg(test)]
 #[allow(non_snake_case)]

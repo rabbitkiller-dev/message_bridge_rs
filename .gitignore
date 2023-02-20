@@ -47,3 +47,7 @@ go-cqhttp
 /src/el.config.ts
 /src/el.config.prod.ts
 /mcl/bots/
+
+# qq数据
+device.json
+session.token
