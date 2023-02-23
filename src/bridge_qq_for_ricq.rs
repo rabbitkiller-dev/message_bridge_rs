@@ -62,6 +62,21 @@ pub async fn sync_message(
                 bridge::MessageContent::Plain { text } => {
                     send_content.push(elem::Text::new(text.to_string()))
                 }
+                bridge::MessageContent::Image { url, path } => {
+                    tracing::debug!("桥消息-图片: {:?}", message.user.avatar_url);
+                    if let Some(url) = url {
+                        let image = upload_group_image(
+                            message.bridge_config.qqGroup,
+                            url,
+                            rq_client.clone(),
+                        )
+                        .await;
+                        if let Result::Ok(image) = image {
+                            send_content.push(image);
+                        }
+                    };
+                    if let Some(_) = path {};
+                }
                 _ => send_content.push(elem::Text::new("{未处理的桥信息}".to_string())),
             }
         }
@@ -166,41 +181,134 @@ impl MessageEventProcess for Handler {
                 user,
             };
 
-            for chain in &group_message.message_chain().0 {
+            for chain1 in &group_message.message_chain().0 {
+                let chain = elem::RQElem::from(chain1.clone());
                 match chain {
-                    proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::Text(text) => {
+                    elem::RQElem::At(at) => {
+                        let name = format!(
+                            "[QQ] {}({})",
+                            at.display.strip_prefix("@").unwrap(),
+                            at.target
+                        );
                         bridge_message
                             .message_chain
-                            .push(bridge::MessageContent::Plain {
-                                text: text.str().to_string(),
+                            .push(bridge::MessageContent::At {
+                                bridge_user_id: None,
+                                username: name,
                             });
                     }
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::Face(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::OnlineImage(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::NotOnlineImage(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::TransElemInfo(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::MarketFace(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::CustomFace(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::ElemFlags2(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::RichMsg(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::GroupFile(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::ExtraInfo(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::VideoFile(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::AnonGroupMsg(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::QqWalletMsg(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::CustomElem(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::GeneralFlags(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::SrcMsg(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::LightApp(_) => todo!(),
-                    // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::CommonElem(_) => todo!(),
-                    _ => {
+                    elem::RQElem::Text(text) => {
+                        tracing::debug!("RQElem::Text: {:?}", text);
+                        bridge_message
+                            .message_chain
+                            .push(bridge::MessageContent::Plain { text: text.content });
+                    }
+                    elem::RQElem::Face(face) => {
+                        tracing::debug!("RQElem::Face: {:?}", face);
+                    }
+                    // elem::RQElem::MarketFace(_) => todo!(),
+                    // elem::RQElem::Dice(_) => todo!(),
+                    // elem::RQElem::FingerGuessing(_) => todo!(),
+                    // elem::RQElem::LightApp(_) => todo!(),
+                    // elem::RQElem::RichMsg(_) => todo!(),
+                    // elem::RQElem::FriendImage(_) => todo!(),
+                    elem::RQElem::GroupImage(group_image) => {
+                        tracing::debug!("group_image: {:?}", group_image);
+                        tracing::debug!("group_image2: {:?}", group_image.url());
+                        let file_path =
+                            match utils::download_and_cache(group_image.url().as_str()).await {
+                                std::result::Result::Ok(path) => Some(path),
+                                Err(err) => {
+                                    tracing::error!("下载图片失败: {:?}", group_image.url());
+                                    None
+                                }
+                            };
+                        // let base64 = image_base64::to_base64(path.as_str());
+                        bridge_message
+                            .message_chain
+                            .push(bridge::MessageContent::Image {
+                                url: Some(group_image.url()),
+                                path: file_path,
+                            })
+                        // bridge_message
+                        //     .message_chain
+                        //     .push(bridge::MessageContent::Image {
+                        //         // url: Some(format!(
+                        //         //     "https://gchat.qpic.cn/{}",
+                        //         //     custom_face.thumb_url()
+                        //         // )),
+                        //         url: Some(format!("{}", group_image.url())),
+                        //         path: None,
+                        //     });
+                    }
+                    // elem::RQElem::FlashImage(_) => todo!(),
+                    // elem::RQElem::VideoFile(_) => todo!(),
+                    elem::RQElem::Other(o) => {
+                        tracing::debug!("未处理1 MessageChain: {:?}", o);
+                    }
+                    o => {
+                        tracing::debug!("未处理2 MessageChain: {:?}", o);
                         bridge_message
                             .message_chain
                             .push(bridge::MessageContent::Plain {
-                                text: "{没有处理qq的MessageChain}".to_string(),
+                                text: "[未处理]".to_string(),
                             });
                     }
                 }
+                // match chain {
+                //     elem::At() => {
+
+                //     }
+                //     proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::Text(text) => {
+                //         if !text.attr6_buf().is_empty() {
+                //             let at = elem::RQElem::At(elem::At::from(text));
+                //         } else {
+                //             bridge_message
+                //                 .message_chain
+                //                 .push(bridge::MessageContent::Plain {
+                //                     text: text.str().to_string(),
+                //                 });
+                //         }
+                //     }
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::Face(_) => todo!(),
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::OnlineImage(_) => todo!(),
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::NotOnlineImage(_) => todo!(),
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::TransElemInfo(_) => todo!(),
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::MarketFace(_) => todo!(),
+                //     proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::CustomFace(
+                //         custom_face,
+                //     ) => {
+                //         bridge_message
+                //             .message_chain
+                //             .push(bridge::MessageContent::Image {
+                //                 url: Some(format!(
+                //                     "https://gchat.qpic.cn/{}",
+                //                     custom_face.thumb_url()
+                //                 )),
+                //                 path: None,
+                //             });
+                //     }
+                //     proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::ElemFlags2(_) => {}
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::RichMsg(_) => todo!(),
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::GroupFile(_) => todo!(),
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::ExtraInfo(_) => todo!(),
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::VideoFile(_) => todo!(),
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::AnonGroupMsg(_) => todo!(),
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::QqWalletMsg(_) => todo!(),
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::CustomElem(_) => todo!(),
+                //     proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::GeneralFlags(_) => {}
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::SrcMsg(_) => todo!(),
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::LightApp(_) => todo!(),
+                //     // proc_qq::re_exports::ricq_core::pb::msg::elem::Elem::CommonElem(_) => todo!(),
+                //     o => {
+                //         tracing::debug!("未处理MessageChain: {:?}", o);
+                //         bridge_message
+                //             .message_chain
+                //             .push(bridge::MessageContent::Plain {
+                //                 text: "[未处理]".to_string(),
+                //             });
+                //     }
+                // }
             }
 
             self.bridge.send(bridge_message);

@@ -44,12 +44,24 @@ pub async fn init() {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum MarkdownAst {
-    // 文本
-    Plain { text: String },
-    // 桥@成员
-    At { username: String },
-    // @dc成员
-    AtInDiscordUser { id: String },
+    // Common: 文本
+    Plain {
+        text: String,
+    },
+    // Common: @成员
+    At {
+        username: String,
+    },
+    // DC: @成员
+    AtInDiscordUser {
+        id: String,
+    },
+    // DC: emoji图片
+    DiscordEmoji {
+        id: String,
+        name: String,
+        animated: bool,
+    },
 }
 
 /**
@@ -108,4 +120,15 @@ fn test_send_post_parse_discord_message() {
 
             println!("{:?}", resp);
         })
+}
+
+#[test]
+fn test2() {
+    println!("{:?}", "zhangsan");
+    println!("{}", "zhangsan");
+}
+#[test]
+fn test3() {
+    let r = "@rabbitBot2".strip_prefix("@").unwrap();
+    println!("{:?}", r);
 }

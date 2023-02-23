@@ -279,6 +279,18 @@ impl EventHandler for Handler {
                             username: member_name,
                         });
                 }
+                crate::utils::MarkdownAst::DiscordEmoji { id, name, animated } => {
+                    let suffix = if animated { "gif" } else { "png" };
+                    bridge_message
+                        .message_chain
+                        .push(bridge::MessageContent::Image {
+                            url: Some(format!(
+                                "https://cdn.discordapp.com/emojis/{}.{}",
+                                id, suffix
+                            )),
+                            path: None,
+                        });
+                }
             }
         }
         // 将附件一股脑的放进图片里面 TODO: 以后在区分非图片的附件
