@@ -10,6 +10,10 @@ use tokio::sync::broadcast;
 use crate::bridge::BridgeClientPlatform::*;
 use crate::BridgeConfig;
 
+pub mod pojo;
+pub mod user;
+pub mod user_manager;
+
 /// 解析枚举文本错误
 #[derive(Debug)]
 pub struct ParseEnumErr(String);
@@ -83,7 +87,8 @@ impl BridgeClientPlatform {
 mod ts_bridge_client_platform {
     use BCP::*;
 
-    use crate::bridge::BridgeClientPlatform as BCP;
+    use crate::bridge::{BridgeClientPlatform as BCP, user_manager};
+    use crate::bridge::pojo::BridgeUserSaveForm;
 
     #[test]
     fn ts_display() {

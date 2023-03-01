@@ -1,3 +1,5 @@
+#![feature(fs_try_exists)]
+
 use std::sync::{Arc, Mutex};
 
 use tracing::{Level};
