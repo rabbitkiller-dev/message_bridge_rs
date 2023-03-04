@@ -12,6 +12,9 @@ use proc_qq::{
     ModuleEventHandler, ModuleEventProcess, ShowQR,
 };
 
+use crate::bridge::pojo::BridgeUserSaveForm;
+use crate::bridge::user::BridgeUser;
+use crate::bridge::user_manager::bridge_user_manager;
 use crate::bridge::BridgeClientPlatform;
 use crate::bridge_message_history::{BridgeMessageHistory, Platform};
 use crate::{bridge, utils, Config};
@@ -59,9 +62,20 @@ pub async fn sync_message(
 
         for chain in &message.message_chain {
             match chain {
+                // 桥文本 转 qq文本
                 bridge::MessageContent::Plain { text } => {
                     send_content.push(elem::Text::new(text.to_string()))
                 }
+                // @桥用户 转 @qq用户 或 @文本
+                bridge::MessageContent::At { id } => {
+                    let bridge_user = bridge::user_manager::bridge_user_manager.lock().await.get(id).await;
+                    if let Some(bridge_user) = bridge_user {
+                        send_content.push(elem::Text::new(format!("@[{}] {}", bridge_user.platform, bridge_user.display_text)))
+                    } else {
+                        send_content.push(elem::Text::new(format!("@[UN] {}", id)))
+                    }
+                }
+                // 桥图片 转 qq图片
                 bridge::MessageContent::Image { url, path } => {
                     tracing::debug!("桥消息-图片: {:?}", message.user.avatar_url);
                     if let Some(url) = url {
@@ -151,6 +165,7 @@ impl MessageEventProcess for Handler {
             // 查询这个频道是否需要通知到群
             let group_id = group_message.inner.group_code as u64;
             let sender_id = group_message.inner.from_uin as u64;
+            let sender_nickname = group_message.inner.group_card.clone();
             let bridge_config = match self
                 .config
                 .bridges
@@ -161,6 +176,7 @@ impl MessageEventProcess for Handler {
                 // 该消息的频道没有配置桥, 忽略这个消息
                 None => return Ok(true),
             };
+            let bridge_user = apply_bridge_user(sender_id, sender_nickname.as_str()).await;
             let user = bridge::User {
                 name: format!(
                     "[QQ] {}({})",
@@ -185,16 +201,14 @@ impl MessageEventProcess for Handler {
                 let chain = elem::RQElem::from(chain1.clone());
                 match chain {
                     elem::RQElem::At(at) => {
-                        let name = format!(
-                            "[QQ] {}({})",
-                            at.display.strip_prefix("@").unwrap(),
-                            at.target
-                        );
+                        tracing::debug!("RQElem::At: {:?}", at);
+                        let target = at.target as u64;
+                        let name = at.display.strip_prefix("@").unwrap();
+                        let bridge_user = apply_bridge_user(target, name).await;
                         bridge_message
                             .message_chain
                             .push(bridge::MessageContent::At {
-                                bridge_user_id: None,
-                                username: name,
+                                id: bridge_user.id
                             });
                     }
                     elem::RQElem::Text(text) => {
@@ -316,6 +330,22 @@ impl MessageEventProcess for Handler {
 
         Ok(true)
     }
+}
+
+/**
+ * 申请桥用户
+ */
+async fn apply_bridge_user(id: u64, name: &str) -> bridge::user::BridgeUser {
+    let bridge_user = bridge::user_manager::bridge_user_manager
+        .lock()
+        .await
+        .likeAndSave(bridge::pojo::BridgeUserSaveForm {
+            origin_id: id.to_string(),
+            platform: "QQ".to_string(),
+            display_text: format!("{}({})", name, id),
+        })
+        .await;
+    bridge_user.unwrap()
 }
 
 #[async_trait]

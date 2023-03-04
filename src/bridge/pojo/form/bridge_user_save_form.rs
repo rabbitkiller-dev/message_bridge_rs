@@ -1,9 +1,5 @@
 pub struct BridgeUserSaveForm {
     /**
-     * id
-     */
-    pub id: String,
-    /**
      * 平台: Discord, QQ
      */
     pub platform: String,
@@ -12,7 +8,7 @@ pub struct BridgeUserSaveForm {
      */
     pub origin_id: String,
     /**
-     * 平台: Discord, QQ
+     * 用户显示文本
      */
     pub display_text: String,
 }

@@ -29,12 +29,12 @@ function parseDiscrodMarkdown(message: string): any {
         atDC: bridgeRule.atDC,
         atQQ: bridgeRule.atQQ,
         atKHL: bridgeRule.atKHL,
-        discordUser: bridgeRule.discordUser,
-        discordEveryone: bridgeRule.discordEveryone,
-        discordHere: bridgeRule.discordHere,
+        DiscordAtUser: bridgeRule.DiscordAtUser,
+        DiscordAtEveryone: bridgeRule.DiscordAtEveryone,
+        DiscordAtHere: bridgeRule.DiscordAtHere,
         DiscordEmoji: bridgeRule.DiscordEmoji,
         Plain: bridgeRule.Plain,
-    })(message) as Array<{ type: 'discordUser' | 'discordEmoji', [prop: string]: any }>;
+    })(message) as Array<{ type: 'DiscordAtUser' | 'DiscordEmoji', [prop: string]: any }>;
     return ast;
 }
 
@@ -84,7 +84,7 @@ export const bridgeRule = {
             return node.content;
         },
     }),
-    discordUser: {
+    DiscordAtUser: {
         order: markdown.defaultRules.strong.order,
         match: source => /^<@!?([0-9]*)>/.exec(source),
         parse: function (capture) {
@@ -96,21 +96,21 @@ export const bridgeRule = {
             return htmlTag('span', state.discordCallback.user(node), { class: 'd-mention d-user' }, state);
         }
     },
-    discordEveryone: {
+    DiscordAtEveryone: {
         order: markdown.defaultRules.strong.order,
         match: source => /^@everyone/.exec(source),
         parse: function () {
-            return { type: 'AtAll' };
+            return { };
         },
         html: function (node, output, state) {
             return htmlTag('span', state.discordCallback.everyone(node), { class: 'd-mention d-user' }, state);
         },
     },
-    discordHere: {
+    DiscordAtHere: {
         order: markdown.defaultRules.strong.order,
         match: source => /^@here/.exec(source),
         parse: function () {
-            return { type: 'AtAll' };
+            return { };
         },
         html: function (node, output, state) {
             return htmlTag('span', state.discordCallback.here(node), { class: 'd-mention d-user' }, state);

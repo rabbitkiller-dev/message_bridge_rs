@@ -53,9 +53,13 @@ pub enum MarkdownAst {
         username: String,
     },
     // DC: @成员
-    AtInDiscordUser {
+    DiscordAtUser {
         id: String,
     },
+    // DC: @所有人
+    DiscordAtEveryone {},
+    // DC: @频道所有人
+    DiscordAtHere {},
     // DC: emoji图片
     DiscordEmoji {
         id: String,
@@ -72,12 +76,13 @@ pub async fn parser_message(content: &str) -> Vec<MarkdownAst> {
     let mut result: Vec<MarkdownAst> = client
         .post("http://localhost:3000/parse-discord-markdown")
         .body(content.to_string())
+        .timeout(std::time::Duration::from_secs(2))
         .send()
         .await
-        .unwrap()
+        .expect("请求解析discord消息服务失败")
         .json()
         .await
-        .unwrap();
+        .expect("解析discord消息回传解析json失败");
 
     if let Some(ast) = result.last() {
         if let MarkdownAst::Plain { text } = ast {

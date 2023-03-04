@@ -121,9 +121,9 @@ pub enum MessageContent {
         text: String,
     },
     At {
-        bridge_user_id: Option<String>,
-        username: String,
+        id: String,
     },
+    AtAll,
     Image {
         /// 图片地址, 通常是cdn或者远程
         url: Option<String>,

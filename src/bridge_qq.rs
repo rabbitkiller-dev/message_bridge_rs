@@ -8,6 +8,9 @@ use mirai_rs::message::{MessageChain, MessageContent};
 use mirai_rs::EventHandler;
 use mirai_rs::Mirai;
 
+use crate::bridge::user::BridgeUser;
+use crate::bridge::user_manager::bridge_user;
+
 use crate::bridge::BridgeClientPlatform;
 use crate::bridge_message_history::{BridgeMessageHistory, Platform};
 use crate::{bridge, utils, Config};
@@ -159,6 +162,8 @@ impl EventHandler for MiraiBridgeHandler {
                 None => return,
             };
 
+            let user: BridgeUser = bridge_user.like(group_message.sender.id, "QQ").await;
+
             let user = bridge::User {
                 name: format!(
                     "[QQ] {}({})",
@@ -174,6 +179,7 @@ impl EventHandler for MiraiBridgeHandler {
                 display_id: group_message.sender.id,
                 platform_id: group_message.sender.group.id,
             };
+
             debug!("qq user: {:#?}", user);
 
             let mut bridge_message = bridge::BridgeMessage {

@@ -54,29 +54,35 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                         fils.push(AttachmentType::Image(url));
                     }
                 }
-                bridge::MessageContent::At { username, .. } => {
-                    trace!("用户'{}'收到@", username);
-                    let re = Regex::new(r"@\[DC\] ([^\n]+)?#(\d\d\d\d)").unwrap();
-                    let caps = re.captures(username);
-                    match caps {
-                        Some(caps) => {
-                            let name = caps.get(1).unwrap();
-                            let dis = caps.get(2).unwrap();
-                            let member =
-                                find_member_by_name(&http, guild_id.0, name.as_str(), dis.as_str())
-                                    .await;
-                            if let Some(member) = member {
-                                content.push(format!("<@{}>", member.user.id.0));
-                            } else {
-                                content.push(username.clone());
-                                warn!("@用户无法解析: {}", username);
-                            }
-                        }
-                        None => {
-                            content.push(username.clone());
-                            warn!("@用户无法解析: {}", username);
-                        }
+                bridge::MessageContent::At { id } => {
+                    let bridge_user = bridge::user_manager::bridge_user_manager.lock().await.get(id).await;
+                    if let Some(bridge_user) = bridge_user {
+                        content.push(format!("@[{}] {}", bridge_user.platform, bridge_user.display_text))
+                    } else {
+                        content.push(format!("@[UN] {}", id))
                     }
+                    // trace!("用户'{}'收到@", username);
+                    // let re = Regex::new(r"@\[DC\] ([^\n]+)?#(\d\d\d\d)").unwrap();
+                    // let caps = re.captures(username);
+                    // match caps {
+                    //     Some(caps) => {
+                    //         let name = caps.get(1).unwrap();
+                    //         let dis = caps.get(2).unwrap();
+                    //         let member =
+                    //             find_member_by_name(&http, guild_id.0, name.as_str(), dis.as_str())
+                    //                 .await;
+                    //         if let Some(member) = member {
+                    //             content.push(format!("<@{}>", member.user.id.0));
+                    //         } else {
+                    //             content.push(username.clone());
+                    //             warn!("@用户无法解析: {}", username);
+                    //         }
+                    //     }
+                    //     None => {
+                    //         content.push(username.clone());
+                    //         warn!("@用户无法解析: {}", username);
+                    //     }
+                    // }
                 }
                 _ => warn!(unit = ?chain, "无法识别的MessageChain"),
             };
@@ -159,7 +165,6 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
         .expect("Err creating client");
 
     let cache = client.cache_and_http.clone();
-    tracing::info!("[DC] Discord客户端连接成功");
 
     tokio::select! {
         _ = client.start() => {
@@ -204,6 +209,7 @@ impl EventHandler for Handler {
             // 该消息的频道没有配置桥, 忽略这个消息
             None => return,
         };
+        let bridge_user = apply_bridge_user(msg.author.id.0, msg.author.name.as_str(), msg.author.discriminator).await;
         let mut user = bridge::User {
             name: format!("[DC] {}#{}", msg.author.name, msg.author.discriminator),
             avatar_url: None,
@@ -257,27 +263,40 @@ impl EventHandler for Handler {
                     trace!("用户'{}'收到@", username);
                     bridge_message
                         .message_chain
-                        .push(bridge::MessageContent::At {
-                            bridge_user_id: None,
-                            username,
-                        });
+                        .push(bridge::MessageContent::Plain { text: username });
+                    // bridge_message
+                    //     .message_chain
+                    //     .push(bridge::MessageContent::At {
+                    //         bridge_user_id: None,
+                    //         username,
+                    //     });
                 }
-                crate::utils::MarkdownAst::AtInDiscordUser { id } => {
+                crate::utils::MarkdownAst::DiscordAtUser { id } => {
                     let id: u64 = id.parse::<u64>().unwrap();
                     let member = ctx
                         .http
                         .get_member(msg.guild_id.unwrap().0, id)
                         .await
                         .unwrap();
-                    let member_name =
-                        format!("[DC] {}#{}", member.user.name, member.user.discriminator);
-                    trace!("用户'{}'收到@", member_name);
+                    let bridge_user = apply_bridge_user(id, member.user.name.as_str(), member.user.discriminator).await;
+                    // let member_name =
+                    //     format!("[DC] {}#{}", member.user.name, member.user.discriminator);
+                    // trace!("用户'{}'收到@", member_name);
                     bridge_message
                         .message_chain
                         .push(bridge::MessageContent::At {
-                            bridge_user_id: None,
-                            username: member_name,
+                            id: bridge_user.id
                         });
+                }
+                crate::utils::MarkdownAst::DiscordAtEveryone { } => {
+                    bridge_message
+                        .message_chain
+                        .push(bridge::MessageContent::AtAll);
+                }
+                crate::utils::MarkdownAst::DiscordAtHere { } => {
+                    bridge_message
+                        .message_chain
+                        .push(bridge::MessageContent::AtAll);
                 }
                 crate::utils::MarkdownAst::DiscordEmoji { id, name, animated } => {
                     let suffix = if animated { "gif" } else { "png" };
@@ -371,6 +390,22 @@ impl EventHandler for Handler {
             }
         }
     }
+}
+
+/**
+ * 申请桥用户
+ */
+async fn apply_bridge_user(id: u64, name: &str, discriminator: u16) -> bridge::user::BridgeUser {
+    let bridge_user = bridge::user_manager::bridge_user_manager
+        .lock()
+        .await
+        .likeAndSave(bridge::pojo::BridgeUserSaveForm {
+            origin_id: id.to_string(),
+            platform: "DC".to_string(),
+            display_text: format!("{}#{}", name, discriminator),
+        })
+        .await;
+    bridge_user.unwrap()
 }
 
 /**

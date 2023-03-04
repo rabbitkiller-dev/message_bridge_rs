@@ -1,6 +1,7 @@
-use std::fs;
+use serde::Deserialize;
+use serde::Serialize;
 
-#[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Eq, PartialEq, Clone)]
 pub struct BridgeUser {
     /**
      * id
@@ -19,4 +20,3 @@ pub struct BridgeUser {
      */
     pub display_text: String,
 }
-
