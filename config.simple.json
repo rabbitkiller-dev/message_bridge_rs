@@ -1,0 +1,17 @@
+{
+  "discordConfig": {
+    "botId": # 机器人的id #,
+    "botToken": # 机器人的token #
+  },
+  "bridges": [
+    {
+      "discord": {
+        "id": # 频道的Webhook id #,
+        "token": # 频道的token #,
+        "channelId": # 频道的id #
+      },
+      "qqGroup": # qq群号 #,
+      "enable": true
+    }
+  ]
+}
