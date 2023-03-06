@@ -2,14 +2,14 @@
 
 use time::format_description::FormatItem;
 use time::UtcOffset;
-use tracing::{debug, error, info, Level, trace, warn};
+use tracing::{debug, error, info, trace, warn, Level};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_appender::rolling;
-use tracing_subscriber::{EnvFilter, fmt};
 use tracing_subscriber::fmt::time::OffsetTime;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{fmt, EnvFilter};
 
 const LOG_DIR: &str = "./logs";
 const F_PFX_NOR: &str = "bridge_log.log";
@@ -32,19 +32,17 @@ pub fn init_logger() -> (WorkerGuard, WorkerGuard) {
     let t_fmt1 = time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]").unwrap();
     let t_fmt2 = time::format_description::parse("[hour]:[minute]:[second].[subsecond digits:3]").unwrap();
 
-    // 日志文件
+    // 日志文件。日志文件不上色（with_ansi(false)）
+    // normal.log: INFO < 等级 < WARN
     let (ff, nl_guard) = tracing_appender::non_blocking(rolling::never(LOG_DIR, F_PFX_NOR));
     let f_normal = fmt::layer()
         .with_ansi(false)
-        .with_writer(
-            ff.with_min_level(Level::WARN)
-                .with_max_level(Level::INFO));
+        .with_writer(ff.with_min_level(Level::WARN).with_max_level(Level::INFO));
     let (ff, el_guard) = tracing_appender::non_blocking(rolling::never(LOG_DIR, F_PFX_ERR));
+    // error.log
     let f_error = fmt::layer()
         .with_ansi(false)
-        .with_writer(
-            ff.with_max_level(Level::ERROR)
-                .with_max_level(Level::ERROR));
+        .with_writer(ff.with_max_level(Level::ERROR));
     let (f_normal, f_error) = {
         let timer = get_timer(t_fmt1);
         (
@@ -58,11 +56,13 @@ pub fn init_logger() -> (WorkerGuard, WorkerGuard) {
     let std_out = fmt::layer()
         .compact()
         .with_timer(timer)
+        // 终端输出上色
         .with_ansi(true)
         .with_writer(std::io::stdout);
 
     // 注册
     tracing_subscriber::registry()
+        // 从环境变量读取日志等级
         .with(EnvFilter::from_env("MSG_BRIDGE"))
         .with(std_out)
         .with(f_normal)

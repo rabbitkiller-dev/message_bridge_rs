@@ -5,18 +5,13 @@ use proc_qq::re_exports::async_trait::async_trait;
 use proc_qq::re_exports::ricq::msg::MessageChain;
 use proc_qq::re_exports::ricq::version::ANDROID_WATCH;
 use proc_qq::re_exports::ricq_core::msg::elem;
-use proc_qq::Authentication::{QRCode, UinPassword};
 use proc_qq::{
-    module, run_client, Authentication, ClientBuilder, DeviceSource, LoginEventProcess,
-    MessageChainAppendTrait, MessageChainPointTrait, MessageEvent, MessageEventProcess,
+    Authentication, ClientBuilder, DeviceSource, LoginEventProcess,
+    MessageChainPointTrait, MessageEvent, MessageEventProcess,
     ModuleEventHandler, ModuleEventProcess, ShowQR,
 };
 
-use crate::bridge::pojo::BridgeUserSaveForm;
-use crate::bridge::user::BridgeUser;
-use crate::bridge::user_manager::bridge_user_manager;
 use crate::bridge::BridgeClientPlatform;
-use crate::bridge_message_history::{BridgeMessageHistory, Platform};
 use crate::{bridge, utils, Config};
 
 pub async fn upload_group_image(
@@ -118,12 +113,12 @@ pub async fn sync_message(
  */
 pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
     tracing::info!("[QQ] 初始化QQ桥");
-    let mut handler = Handler {
+    let handler = Handler {
         config: config.clone(),
         bridge: bridge.clone(),
         origin_client: None,
     };
-    let mut handler = Box::new(handler);
+    let handler = Box::new(handler);
     let on_message = ModuleEventHandler {
         name: "OnMessage".to_owned(),
         process: ModuleEventProcess::Message(handler),
@@ -182,7 +177,7 @@ impl MessageEventProcess for Handler {
                 // 该消息的频道没有配置桥, 忽略这个消息
                 None => return Ok(true),
             };
-            let bridge_user = apply_bridge_user(sender_id, sender_nickname.as_str()).await;
+            let _bridge_user = apply_bridge_user(sender_id, sender_nickname.as_str()).await;
             let user = bridge::User {
                 name: format!(
                     "[QQ] {}({})",
@@ -238,7 +233,7 @@ impl MessageEventProcess for Handler {
                         let file_path =
                             match utils::download_and_cache(group_image.url().as_str()).await {
                                 std::result::Result::Ok(path) => Some(path),
-                                Err(err) => {
+                                Err(_) => {
                                     tracing::error!("下载图片失败: {:?}", group_image.url());
                                     None
                                 }
@@ -356,7 +351,7 @@ async fn apply_bridge_user(id: u64, name: &str) -> bridge::user::BridgeUser {
 
 #[async_trait]
 impl LoginEventProcess for Handler {
-    async fn handle(&self, event: &proc_qq::LoginEvent) -> anyhow::Result<bool> {
+    async fn handle(&self, _: &proc_qq::LoginEvent) -> anyhow::Result<bool> {
         tracing::info!("[QQ] 登录到qq客户端");
         Ok(true)
     }

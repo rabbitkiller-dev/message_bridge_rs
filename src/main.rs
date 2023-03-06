@@ -17,12 +17,13 @@ mod bridge_qq_for_ricq;
 mod cmd_adapter;
 mod config;
 mod utils;
+mod logger;
 
 pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    init_tracing_subscriber();
+    logger::init_logger();
     let config = Arc::new(Config::new());
     tracing::info!("config: {:#?}", config);
     tracing::info!("config loaded");
@@ -63,8 +64,33 @@ fn init_tracing_subscriber() {
         .init();
 }
 
+/// # 2元表达式宏 - Result
+/// ## Example
+/// ```
+/// assert_eq!(elr!(Ok::<_, ()>(1) ;; 2), 1);
+/// assert_eq!(elr!(Err(0) ;; 42), 42);
+/// ```
+#[macro_export]
+macro_rules! elr {
+    ($opt:expr ;; $ret:expr) => {
+        if let Ok(v) = $opt {v} else {$ret}
+    };
+}
+/// # 2元表达式宏 - Option
+/// ## Example
+/// ```
+/// assert_eq!(elo!(Some(1) ;; 2), 1);
+/// assert_eq!(elo!(None ;; 42), 42);
+/// ```
+#[macro_export]
+macro_rules! elo {
+    ($opt:expr ;; $ret:expr) => {
+        if let Some(v) = $opt {v} else {$ret}
+    };
+}
+
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[allow(unused)]
 mod test {
     use super::*;
 
@@ -75,12 +101,20 @@ mod test {
     }
 
     #[test]
+    fn ts_el() {
+        assert_eq!(elr!(Ok::<_, ()>(1) ;; 2), 1);
+        assert_eq!(elr!(Err(0) ;; 42), 42);
+        assert_eq!(elo!(Some(1) ;; 2), 1);
+        assert_eq!(elo!(None ;; 42), 42);
+    }
+
+    #[test]
     fn test() -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
     #[test]
-    fn getConfig() {
+    fn get_config() {
         let config = Config::new();
         println!("config:");
         println!("{:?}", config);

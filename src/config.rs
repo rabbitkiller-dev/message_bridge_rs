@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use serde::Deserialize;
 use serde::Serialize;
 use std::fs;
