@@ -10,7 +10,7 @@ pub struct BridgeUser {
      */
     pub id: String,
     /**
-     * 平台: Discord, QQ
+     * 平台: Discord = DC, QQ = QQ
      */
     pub platform: String,
     /**

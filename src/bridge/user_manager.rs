@@ -1,4 +1,3 @@
-#[macro_use]
 use lazy_static::lazy_static;
 use std::fs;
 use tokio::sync::Mutex;
@@ -12,7 +11,7 @@ pub struct BridgeUserManager {
 
 impl BridgeUserManager {
     pub fn new() -> BridgeUserManager {
-        let path = "./bridge_user.json";
+        let path = "./data/bridge_user.json";
         if let Ok(true) = fs::try_exists(path) {
             let file = fs::read_to_string(path).unwrap();
             let bridge_users: Vec<BridgeUser> = serde_json::from_str(file.as_str()).unwrap();
@@ -77,7 +76,7 @@ impl BridgeUserManager {
             origin_id: form.origin_id,
             platform: form.platform,
             display_text: form.display_text,
-            ref_id: None
+            ref_id: None,
         };
         self.bridge_users.push(user.clone());
         self.serialize();
@@ -86,7 +85,7 @@ impl BridgeUserManager {
 
     fn serialize(&self) {
         let content = serde_json::to_string(&self.bridge_users).unwrap();
-        fs::write("./bridge_user.json", content).unwrap();
+        fs::write("./data/bridge_user.json", content).unwrap();
     }
 }
 

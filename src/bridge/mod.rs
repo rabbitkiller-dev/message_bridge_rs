@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::ops::{BitOr, Index};
+use std::ops::{BitOr};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 

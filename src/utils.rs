@@ -16,7 +16,7 @@ pub async fn download_and_cache(url: &str) -> Result<String, reqwest::Error> {
         Some(value) => {
             let mine = value.to_str().unwrap().parse::<mime::Mime>().unwrap();
             let ext = match mime_guess::get_mime_extensions(&mine) {
-                Some(exts) => exts.last().unwrap().to_string(),
+                Some(exts) => exts.first().unwrap().to_string(),
                 None => mine.subtype().to_string(),
             };
             format!(".{}", ext)
@@ -86,14 +86,14 @@ pub async fn parser_message(content: &str) -> Vec<MarkdownAst> {
 
     if let Some(ast) = result.last() {
         if let MarkdownAst::Plain { text } = ast {
-            if (text.eq("\n")) {
+            if text.eq("\n") {
                 result.remove(result.len() - 1);
             }
         }
     }
     if let Some(ast) = result.last() {
         if let MarkdownAst::Plain { text } = ast {
-            if (text.eq("\n")) {
+            if text.eq("\n") {
                 result.remove(result.len() - 1);
             }
         }
@@ -136,4 +136,19 @@ fn test2() {
 fn test3() {
     let r = "@rabbitBot2".strip_prefix("@").unwrap();
     println!("{:?}", r);
+}
+
+#[test]
+fn test4() {
+    let mine = "image/png".parse::<mime::Mime>().unwrap();
+    println!("{:?}", mine);
+    match mime_guess::get_mime_extensions(&mine) {
+        Some(exts) => {
+            println!("Some: {:?}", exts);
+            println!("Some: {}", exts.first().unwrap().to_string());
+        },
+        None => {
+            println!("None: {}", mine.subtype().to_string());
+        },
+    };
 }
