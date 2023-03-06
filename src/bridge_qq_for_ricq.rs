@@ -6,9 +6,8 @@ use proc_qq::re_exports::ricq::msg::MessageChain;
 use proc_qq::re_exports::ricq::version::ANDROID_WATCH;
 use proc_qq::re_exports::ricq_core::msg::elem;
 use proc_qq::{
-    Authentication, ClientBuilder, DeviceSource, LoginEventProcess,
-    MessageChainPointTrait, MessageEvent, MessageEventProcess,
-    ModuleEventHandler, ModuleEventProcess, ShowQR,
+    Authentication, ClientBuilder, DeviceSource, LoginEventProcess, MessageChainPointTrait,
+    MessageEvent, MessageEventProcess, ModuleEventHandler, ModuleEventProcess, ShowQR,
 };
 
 use crate::bridge::BridgeClientPlatform;
@@ -63,7 +62,11 @@ pub async fn sync_message(
                 }
                 // @桥用户 转 @qq用户 或 @文本
                 bridge::MessageContent::At { id } => {
-                    let bridge_user = bridge::user_manager::bridge_user_manager.lock().await.get(id).await;
+                    let bridge_user = bridge::user_manager::bridge_user_manager
+                        .lock()
+                        .await
+                        .get(id)
+                        .await;
                     if let None = bridge_user {
                         send_content.push(elem::Text::new(format!("@[UN] {}", id)));
                         continue;
@@ -76,7 +79,10 @@ pub async fn sync_message(
                         continue;
                     }
                     // 没有关联账号用标准格式发送消息
-                    send_content.push(elem::Text::new(format!("@[{}] {}", bridge_user.platform, bridge_user.display_text)))
+                    send_content.push(elem::Text::new(format!(
+                        "@[{}] {}",
+                        bridge_user.platform, bridge_user.display_text
+                    )))
                 }
                 // 桥图片 转 qq图片
                 bridge::MessageContent::Image { url, path } => {
@@ -208,9 +214,7 @@ impl MessageEventProcess for Handler {
                         let bridge_user = apply_bridge_user(target, name).await;
                         bridge_message
                             .message_chain
-                            .push(bridge::MessageContent::At {
-                                id: bridge_user.id
-                            });
+                            .push(bridge::MessageContent::At { id: bridge_user.id });
                     }
                     elem::RQElem::Text(text) => {
                         tracing::debug!("RQElem::Text: {:?}", text);

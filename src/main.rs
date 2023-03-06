@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use tracing::{Level};
+use tracing::Level;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use config::*;
@@ -16,8 +16,8 @@ mod bridge_message_history;
 mod bridge_qq_for_ricq;
 mod cmd_adapter;
 mod config;
-mod utils;
 mod logger;
+mod utils;
 
 pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -47,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn init_tracing_subscriber() {
+fn _init_tracing_subscriber() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()
@@ -73,7 +73,11 @@ fn init_tracing_subscriber() {
 #[macro_export]
 macro_rules! elr {
     ($opt:expr ;; $ret:expr) => {
-        if let Ok(v) = $opt {v} else {$ret}
+        if let Ok(v) = $opt {
+            v
+        } else {
+            $ret
+        }
     };
 }
 /// # 2元表达式宏 - Option
@@ -85,7 +89,11 @@ macro_rules! elr {
 #[macro_export]
 macro_rules! elo {
     ($opt:expr ;; $ret:expr) => {
-        if let Some(v) = $opt {v} else {$ret}
+        if let Some(v) = $opt {
+            v
+        } else {
+            $ret
+        }
     };
 }
 

@@ -90,6 +90,7 @@ pub struct HisotryMessage {
     message_id: String,
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
 

@@ -6,10 +6,11 @@ use std::fs;
 
 #[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
 pub struct Config {
-    pub miraiConfig: MiraiConfig,
-    pub discordConfig: DiscordConfig,
+    #[serde(rename = "miraiConfig")]
+    pub mirai_config: MiraiConfig,
+    #[serde(rename = "discordConfig")]
+    pub discord_config: DiscordConfig,
     pub bridges: Vec<BridgeConfig>,
-    pub bridgesUsers: Vec<BridgeUser>,
 }
 
 impl Config {
@@ -19,16 +20,6 @@ impl Config {
         let config: Config = serde_json::from_str(file.as_str()).unwrap();
 
         config
-    }
-
-    pub fn add_user(&mut self, qq: u64, discord_id: u64) {
-        self.bridgesUsers.push(BridgeUser {
-            id: uuid::Uuid::new_v4().to_string(),
-            qq,
-            discordId: discord_id,
-        });
-        let content = serde_json::to_string(&self).unwrap();
-        fs::write("./config.json", content).unwrap();
     }
 }
 
@@ -76,12 +67,5 @@ mod test {
         let config = Config::new();
         println!("config:");
         println!("{:?}", config);
-    }
-
-    #[test]
-    fn addUser() {
-        let mut config = Config::new();
-
-        config.add_user(000321, 111111)
     }
 }
