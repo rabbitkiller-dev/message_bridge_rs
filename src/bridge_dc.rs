@@ -56,11 +56,19 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                 }
                 bridge::MessageContent::At { id } => {
                     let bridge_user = bridge::user_manager::bridge_user_manager.lock().await.get(id).await;
-                    if let Some(bridge_user) = bridge_user {
-                        content.push(format!("@[{}] {}", bridge_user.platform, bridge_user.display_text))
-                    } else {
-                        content.push(format!("@[UN] {}", id))
+                    let bridge_user = bridge::user_manager::bridge_user_manager.lock().await.get(id).await;
+                    if let None = bridge_user {
+                        content.push(format!("@[UN] {}", id));
+                        continue;
                     }
+                    let bridge_user = bridge_user.unwrap();
+                    // 查看桥关联的本平台用户id
+                    if let Some(ref_user) = bridge_user.findRefByPlatform("DC").await {
+                        content.push(format!("<@{}>", ref_user.origin_id));
+                        continue;
+                    }
+                    // 没有关联账号用标准格式发送消息
+                    content.push(format!("@[{}] {}", bridge_user.platform, bridge_user.display_text));
                     // trace!("用户'{}'收到@", username);
                     // let re = Regex::new(r"@\[DC\] ([^\n]+)?#(\d\d\d\d)").unwrap();
                     // let caps = re.captures(username);

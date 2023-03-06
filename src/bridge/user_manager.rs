@@ -26,7 +26,7 @@ impl BridgeUserManager {
     /// 根据id查询指定用户
     pub async fn get(&self, id: &str) -> Option<BridgeUser> {
         for user in &self.bridge_users {
-            if (id.eq(&user.id)) {
+            if id.eq(&user.id) {
                 return Some(user.clone());
             }
         }
@@ -36,7 +36,7 @@ impl BridgeUserManager {
     /// 模糊查询用户 (源id和平台)
     pub async fn like(&self, origin_id: &str, platform: &str) -> Option<BridgeUser> {
         for user in &self.bridge_users {
-            if (origin_id.eq(&user.origin_id) && platform.eq(&user.platform)) {
+            if origin_id.eq(&user.origin_id) && platform.eq(&user.platform) {
                 return Some(user.clone());
             }
         }
@@ -48,6 +48,19 @@ impl BridgeUserManager {
             Some(user) => Ok(user),
             None => self.save(form).await,
         }
+    }
+
+    /// 通过关联id和平台查询绑定的另一个账号
+    pub async fn findByRefAndPlatform(&self, ref_id: &str, platform: &str) -> Option<BridgeUser> {
+        for user in &self.bridge_users {
+            if let None = user.ref_id {
+                return None;
+            }
+            if ref_id.eq(user.ref_id.as_ref().unwrap()) && platform.eq(&user.platform) {
+                return Some(user.clone());
+            }
+        }
+        None
     }
 
     /// 保存一条新的用户
@@ -64,6 +77,7 @@ impl BridgeUserManager {
             origin_id: form.origin_id,
             platform: form.platform,
             display_text: form.display_text,
+            ref_id: None
         };
         self.bridge_users.push(user.clone());
         self.serialize();
@@ -80,7 +94,7 @@ lazy_static! {
     // static ref VEC:Vec<u8> = vec![0x18u8, 0x11u8];
     // static ref MAP: HashMap<u32, String> = {
     //     let mut map = HashMap::new();
-    //     map.insert(18, "hury".to_owned());
+    //     map.insert(18, "hury".to_owned());s
     //     map
     // };
     // static ref PAGE:u32 = mulit(18);

@@ -69,11 +69,19 @@ pub async fn sync_message(
                 // @桥用户 转 @qq用户 或 @文本
                 bridge::MessageContent::At { id } => {
                     let bridge_user = bridge::user_manager::bridge_user_manager.lock().await.get(id).await;
-                    if let Some(bridge_user) = bridge_user {
-                        send_content.push(elem::Text::new(format!("@[{}] {}", bridge_user.platform, bridge_user.display_text)))
-                    } else {
-                        send_content.push(elem::Text::new(format!("@[UN] {}", id)))
+                    if let None = bridge_user {
+                        send_content.push(elem::Text::new(format!("@[UN] {}", id)));
+                        continue;
                     }
+                    let bridge_user = bridge_user.unwrap();
+                    // 查看桥关联的本平台用户id
+                    if let Some(ref_user) = bridge_user.findRefByPlatform("QQ").await {
+                        let origin_id = ref_user.origin_id.parse::<i64>().unwrap();
+                        send_content.push(elem::At::new(origin_id));
+                        continue;
+                    }
+                    // 没有关联账号用标准格式发送消息
+                    send_content.push(elem::Text::new(format!("@[{}] {}", bridge_user.platform, bridge_user.display_text)))
                 }
                 // 桥图片 转 qq图片
                 bridge::MessageContent::Image { url, path } => {
@@ -159,8 +167,6 @@ pub struct Handler {
 #[async_trait]
 impl MessageEventProcess for Handler {
     async fn handle(&self, event: &MessageEvent) -> anyhow::Result<bool> {
-        tracing::debug!("收到消息");
-
         if let MessageEvent::GroupMessage(group_message) = event {
             // 查询这个频道是否需要通知到群
             let group_id = group_message.inner.group_code as u64;

@@ -13,6 +13,7 @@ use crate::BridgeConfig;
 pub mod pojo;
 pub mod user;
 pub mod user_manager;
+pub mod user_ref_manager;
 
 /// 解析枚举文本错误
 #[derive(Debug)]
