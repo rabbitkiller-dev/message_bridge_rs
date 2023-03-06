@@ -141,7 +141,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
 
         match resp {
             Ok(result) => {
-                if let Some(msg) = result {
+                if let Some(_msg) = result {
                     // BridgeMessageHistory::insert(
                     //     &message.id,
                     //     Platform::Discord,

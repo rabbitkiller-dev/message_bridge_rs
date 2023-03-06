@@ -1,10 +1,8 @@
 #![feature(fs_try_exists)]
 
 use std::sync::{Arc, Mutex};
-
-use tracing::Level;
+use tracing::{Level, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
 use config::*;
 
 mod bridge;
@@ -12,7 +10,7 @@ mod bridge_cmd;
 mod bridge_data;
 mod bridge_dc;
 mod bridge_log;
-mod bridge_qq_for_ricq;
+mod bridge_qq;
 mod cmd_adapter;
 mod config;
 mod logger;
@@ -24,8 +22,8 @@ pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _log_guard = logger::init_logger();
     let config = Arc::new(Config::new());
-    tracing::info!("config: {:#?}", config);
-    tracing::info!("config loaded");
+    info!("config: {:#?}", config);
+    info!("config loaded");
     let bridge_service = bridge::BridgeService::new();
     let bridge_service = Arc::new(Mutex::new(bridge_service));
     let bridge_dc_client =
@@ -35,11 +33,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bridge_cmd_adapter =
         bridge::BridgeService::create_client("bridge_cmd_adapter", bridge_service.clone());
     // let a = Some(bridge_service.clone());
-    tracing::info!("bridge ready");
+    info!("bridge ready");
 
     tokio::select! {
         _ = bridge_dc::start(config.clone(), bridge_dc_client) => {},
-        _ = bridge_qq_for_ricq::start(config.clone(), bridge_qq_client) => {},
+        _ = bridge_qq::start(config.clone(), bridge_qq_client) => {},
         _ = cmd_adapter::start(config.clone(), bridge_cmd_adapter) => {},
     }
 

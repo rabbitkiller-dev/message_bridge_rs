@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::ops::{BitOr};
+use std::ops::BitOr;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
@@ -88,8 +88,7 @@ impl BridgeClientPlatform {
 mod ts_bridge_client_platform {
     use BCP::*;
 
-    use crate::bridge::{BridgeClientPlatform as BCP, user_manager};
-    use crate::bridge::pojo::BridgeUserSaveForm;
+    use crate::bridge::BridgeClientPlatform as BCP;
 
     #[test]
     fn ts_display() {

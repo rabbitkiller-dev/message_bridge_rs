@@ -6,8 +6,8 @@ use std::fs;
 
 #[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
 pub struct Config {
-    #[serde(rename = "miraiConfig")]
-    pub mirai_config: MiraiConfig,
+    #[serde(rename = "qqConfig")]
+    pub qq_config: QQConfig,
     #[serde(rename = "discordConfig")]
     pub discord_config: DiscordConfig,
     pub bridges: Vec<BridgeConfig>,
@@ -24,7 +24,7 @@ impl Config {
 }
 
 #[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
-pub struct MiraiConfig {
+pub struct QQConfig {
     pub verifyKey: String,
     pub host: String,
     pub port: u32,

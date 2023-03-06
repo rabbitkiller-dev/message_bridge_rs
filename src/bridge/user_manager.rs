@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use lazy_static::lazy_static;
 use std::fs;
 use tokio::sync::Mutex;
