@@ -1,0 +1,6 @@
+*.js eol=lf
+*.json eol=lf
+*.md eol=lf
+*.rs eol=lf
+*.yml eol=lf
+*.webp binary
