@@ -22,7 +22,7 @@ pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    logger::init_logger();
+    let _log_guard = logger::init_logger();
     let config = Arc::new(Config::new());
     tracing::info!("config: {:#?}", config);
     tracing::info!("config loaded");
