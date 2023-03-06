@@ -9,7 +9,7 @@ use serenity::prelude::*;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::bridge::BridgeClientPlatform;
-use crate::bridge_message_history::{BridgeMessageHistory, Platform};
+// use crate::bridge_message_history::{BridgeMessageHistory, Platform};
 use crate::{bridge, bridge_dc, Config};
 
 pub mod handler;
@@ -142,13 +142,13 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
         match resp {
             Ok(result) => {
                 if let Some(msg) = result {
-                    BridgeMessageHistory::insert(
-                        &message.id,
-                        Platform::Discord,
-                        msg.id.0.to_string().as_str(),
-                    )
-                    .await
-                    .unwrap();
+                    // BridgeMessageHistory::insert(
+                    //     &message.id,
+                    //     Platform::Discord,
+                    //     msg.id.0.to_string().as_str(),
+                    // )
+                    // .await
+                    // .unwrap();
                 } else {
                     error!("同步的消息没有返回消息id")
                 }

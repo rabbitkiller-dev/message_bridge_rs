@@ -9,7 +9,6 @@ use tracing::{debug, error, info, instrument, trace};
 
 use crate::bridge::BridgeClientPlatform;
 use crate::bridge_dc::apply_bridge_user;
-use crate::bridge_message_history::{BridgeMessageHistory, Platform};
 use crate::{bridge, Config};
 
 pub struct Handler {
@@ -72,13 +71,13 @@ impl EventHandler for Handler {
             user,
         };
         // 记录消息id
-        BridgeMessageHistory::insert(
-            &bridge_message.id,
-            Platform::Discord,
-            msg.id.0.to_string().as_str(),
-        )
-        .await
-        .unwrap();
+        // BridgeMessageHistory::insert(
+        //     &bridge_message.id,
+        //     Platform::Discord,
+        //     msg.id.0.to_string().as_str(),
+        // )
+        // .await
+        // .unwrap();
 
         let result = crate::utils::parser_message(&msg.content).await;
         for ast in result {

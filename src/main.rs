@@ -12,7 +12,6 @@ mod bridge_cmd;
 mod bridge_data;
 mod bridge_dc;
 mod bridge_log;
-mod bridge_message_history;
 mod bridge_qq_for_ricq;
 mod cmd_adapter;
 mod config;
