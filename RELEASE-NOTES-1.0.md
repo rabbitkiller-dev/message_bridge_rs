@@ -1,10 +1,41 @@
 # message_bridge_rs 1.0
 
-## message_bridge_rs 1.0.0
+## message_bridge_rs 1.0.0-alpha.4
 
 THIS IS NOT A RELEASE YET
 
-For notes on 0.1.x, see HISTORY.
+### Changes since message_bridge_rs 1.0.0-alpha.3
+
+* (bug #17) docs: Update RELEASE-NOTES for 1.0.0-alpha.1, 1.0.0-alpha.2,
+  1.0.0-alpha.3
+
+## message_bridge_rs 1.0.0-alpha.3
+
+message_bridge_rs 1.0.0-alpha.3 is an alpha-quality development branch.
+
+See bug #15, #16.
+
+### Changes since message_bridge_rs 1.0.0-alpha.2
+
+* feat: Handle file extension issues - part 2
+* feat: Handle file extension issues - part 3
+
+## message_bridge_rs 1.0.0-alpha.2
+
+message_bridge_rs 1.0.0-alpha.2 is an alpha-quality development branch.
+
+See bug #14.
+
+### Changes since message_bridge_rs 1.0.0-alpha.1
+
+* (bug #7) fix: Fix CI 'act-build'
+* (bug #8, #12) docs: Update RELEASE-NOTES
+
+## message_bridge_rs 1.0.0-alpha.1
+
+message_bridge_rs 1.0.0-alpha.1 is an alpha-quality development branch.
+
+See bug #13.
 
 ### Changes since message_bridge_rs 0.1.0
 
@@ -73,5 +104,4 @@ For notes on 0.1.x, see HISTORY.
 * (bug #7) fix: Log level too low when not being set in environment varibles
 * (bug #7) pref: Clean up modules
 * (bug #7) fix: Use nightly for CI 'act-build' for GitHub
-* (bug #7) fix: Fix CI 'act-build'
-* (bug #8, #12) docs: Update RELEASE-NOTES
+* feat: Handle file extension issues
