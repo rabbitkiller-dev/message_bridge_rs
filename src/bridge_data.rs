@@ -4,6 +4,7 @@ use crate::bridge::{BridgeClientPlatform as BCP, User};
 use std::fs::{create_dir_all, OpenOptions};
 use std::io::{Read, Write};
 use std::path::Path;
+use tracing::error;
 
 ///! 定义绑定映射
 pub mod bind_map {
@@ -158,7 +159,7 @@ pub mod bind_map {
             return true;
         }
         if let Err(e) = create_dir_all(dat_dir) {
-            println!("目录'{}'创建失败！{:#?}", dat_dir.to_str().unwrap(), e);
+            error!("目录'{}'创建失败！{:#?}", dat_dir.to_str().unwrap(), e);
             return false;
         }
         true
@@ -178,10 +179,10 @@ pub mod bind_map {
         match file {
             Ok(mut f) => {
                 if let Err(e) = f.read_to_string(&mut json) {
-                    println!("Can not read file({}); {:#?}", BIND_MAP_PATH, e);
+                    error!("Can not read file({}); {:#?}", BIND_MAP_PATH, e);
                 }
             }
-            Err(e) => println!("Can not open/create data file({}); {:#?}", BIND_MAP_PATH, e),
+            Err(e) => error!("Can not open/create data file({}); {:#?}", BIND_MAP_PATH, e),
         };
 
         if !json.is_empty() {
@@ -191,7 +192,7 @@ pub mod bind_map {
                     data.retain(|((p1, ..), (p2, ..))| *p1 > 0 && *p2 > 0);
                     return data;
                 }
-                Err(e) => println!("BindMap load fail, data can not be parsed; {:#?}", e),
+                Err(e) => error!("BindMap load fail, data can not be parsed; {:#?}", e),
             }
         }
         BindData::new()
@@ -209,7 +210,7 @@ pub mod bind_map {
                 raw = json;
             }
             Err(e) => {
-                println!("Fail to parse BindMap to JSON; {:#?}", e);
+                error!("Fail to parse BindMap to JSON; {:#?}", e);
                 return false;
             }
         }
@@ -222,12 +223,12 @@ pub mod bind_map {
         match file {
             Ok(mut f) => {
                 if let Err(e) = f.write_all(raw.as_bytes()) {
-                    println!("Can not write to file({}); {:#?}", BIND_MAP_PATH, e);
+                    error!("Can not write to file({}); {:#?}", BIND_MAP_PATH, e);
                     return false;
                 }
             }
             Err(e) => {
-                println!("Can not open/create data file({}); {:#?}", BIND_MAP_PATH, e);
+                error!("Can not open/create data file({}); {:#?}", BIND_MAP_PATH, e);
                 return false;
             }
         };
