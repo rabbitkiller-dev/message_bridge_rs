@@ -29,7 +29,7 @@ pub async fn download_and_cache(url: &str) -> Result<String, reqwest::Error> {
 
 pub fn get_mine_type_ext(mime_type: &str) -> String {
     if "image/jpeg".eq(mime_type) {
-        return "jpg".to_string();
+        return ".jpg".to_string();
     }
     let mine = mime_type.parse::<mime::Mime>().unwrap();
     let ext = match mime_guess::get_mime_extensions(&mine) {
