@@ -1,13 +1,16 @@
-use std::fs;
+#![allow(non_snake_case)]
+
 use serde::Deserialize;
 use serde::Serialize;
+use std::fs;
 
 #[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
 pub struct Config {
-    pub miraiConfig: MiraiConfig,
-    pub discordConfig: DiscordConfig,
+    #[serde(rename = "qqConfig")]
+    pub qq_config: QQConfig,
+    #[serde(rename = "discordConfig")]
+    pub discord_config: DiscordConfig,
     pub bridges: Vec<BridgeConfig>,
-    pub bridgesUsers: Vec<BridgeUser>,
 }
 
 impl Config {
@@ -18,20 +21,10 @@ impl Config {
 
         config
     }
-
-    pub fn add_user(&mut self, qq: u64, discord_id: u64) {
-        self.bridgesUsers.push(BridgeUser {
-            id: uuid::Uuid::new_v4().to_string(),
-            qq,
-            discordId: discord_id
-        });
-        let content = serde_json::to_string(&self).unwrap();
-        fs::write("./config.json", content).unwrap();
-    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
-pub struct MiraiConfig {
+pub struct QQConfig {
     pub verifyKey: String,
     pub host: String,
     pub port: u32,
@@ -61,10 +54,8 @@ pub struct DiscordBridgeConfig {
 pub struct BridgeUser {
     id: String,
     qq: u64,
-    discordId: u64
+    discordId: u64,
 }
-
-
 
 #[cfg(test)]
 #[allow(non_snake_case)]
@@ -76,12 +67,5 @@ mod test {
         let config = Config::new();
         println!("config:");
         println!("{:?}", config);
-    }
-
-    #[test]
-    fn addUser() {
-        let mut config = Config::new();
-
-        config.add_user(000321, 111111)
     }
 }

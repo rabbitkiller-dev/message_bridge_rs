@@ -1,11 +1,8 @@
-use js_sandbox::{AnyError, Script};
-use reqwest::Client;
 use serde::Deserialize;
 use serde::Serialize;
 use std::io::Cursor;
-// use std::{fs::File, io::Write};
 use std::path;
-use tokio::fs::{self, File};
+use tokio::fs::File;
 
 pub async fn download_and_cache(url: &str) -> Result<String, reqwest::Error> {
     init().await;
@@ -19,7 +16,7 @@ pub async fn download_and_cache(url: &str) -> Result<String, reqwest::Error> {
         Some(value) => {
             let mine = value.to_str().unwrap().parse::<mime::Mime>().unwrap();
             let ext = match mime_guess::get_mime_extensions(&mine) {
-                Some(exts) => exts.last().unwrap().to_string(),
+                Some(exts) => exts.first().unwrap().to_string(),
                 None => mine.subtype().to_string(),
             };
             format!(".{}", ext)
@@ -47,33 +44,56 @@ pub async fn init() {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum MarkdownAst {
-    // 文本
-    Plain { text: String },
-    // 桥@成员
-    At { username: String },
-    // @dc成员
-    AtInDiscordUser { id: String },
+    // Common: 文本
+    Plain {
+        text: String,
+    },
+    // Common: @成员
+    At {
+        username: String,
+    },
+    // DC: @成员
+    DiscordAtUser {
+        id: String,
+    },
+    // DC: @所有人
+    DiscordAtEveryone {},
+    // DC: @频道所有人
+    DiscordAtHere {},
+    // DC: emoji图片
+    DiscordEmoji {
+        id: String,
+        name: String,
+        animated: bool,
+    },
 }
 
 /**
  * 将dc和qq消息进行解析
  */
-pub fn parser_message(content: &str) -> Vec<MarkdownAst> {
-    let str = std::fs::read_to_string("./mde.js").unwrap();
-    let mut script = Script::from_string(str.as_str()).unwrap();
-
-    let mut result: Vec<MarkdownAst> = script.call("parserBridgeMessage", &content).unwrap();
+pub async fn parser_message(content: &str) -> Vec<MarkdownAst> {
+    let client = reqwest::Client::new();
+    let mut result: Vec<MarkdownAst> = client
+        .post("http://localhost:3000/parse-discord-markdown")
+        .body(content.to_string())
+        .timeout(std::time::Duration::from_secs(2))
+        .send()
+        .await
+        .expect("请求解析discord消息服务失败")
+        .json()
+        .await
+        .expect("解析discord消息回传解析json失败");
 
     if let Some(ast) = result.last() {
         if let MarkdownAst::Plain { text } = ast {
-            if (text.eq("\n")) {
+            if text.eq("\n") {
                 result.remove(result.len() - 1);
             }
         }
     }
     if let Some(ast) = result.last() {
         if let MarkdownAst::Plain { text } = ast {
-            if (text.eq("\n")) {
+            if text.eq("\n") {
                 result.remove(result.len() - 1);
             }
         }
@@ -82,16 +102,53 @@ pub fn parser_message(content: &str) -> Vec<MarkdownAst> {
     result
 }
 
-/**
- * 测试parser_message
- */
 #[test]
-pub fn test_() {
-    let vec = parser_message("<@724827488588660837>");
-    println!("{:?}", vec);
-    let vec = parser_message(
-        r#"@[DC] 6uopdong#4700
-    !绑定 qq 1261972160"#,
-    );
-    println!("{:?}", vec);
+fn test_send_post_parse_discord_message() {
+    let message = r#"@[DC] 6uopdong#4700
+    !绑定 qq 1261972160"#;
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            println!("发送");
+            let client = reqwest::Client::new();
+            let resp: Vec<MarkdownAst> = client
+                .post("http://localhost:3000/parse-discord-markdown")
+                .body(message)
+                .send()
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap();
+
+            println!("{:?}", resp);
+        })
+}
+
+#[test]
+fn test2() {
+    println!("{:?}", "zhangsan");
+    println!("{}", "zhangsan");
+}
+#[test]
+fn test3() {
+    let r = "@rabbitBot2".strip_prefix("@").unwrap();
+    println!("{:?}", r);
+}
+
+#[test]
+fn test4() {
+    let mine = "image/png".parse::<mime::Mime>().unwrap();
+    println!("{:?}", mine);
+    match mime_guess::get_mime_extensions(&mine) {
+        Some(exts) => {
+            println!("Some: {:?}", exts);
+            println!("Some: {}", exts.first().unwrap().to_string());
+        },
+        None => {
+            println!("None: {}", mine.subtype().to_string());
+        },
+    };
 }

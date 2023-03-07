@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::ops::{BitOr, Index};
+use std::ops::BitOr;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
@@ -9,6 +9,11 @@ use tokio::sync::broadcast;
 
 use crate::bridge::BridgeClientPlatform::*;
 use crate::BridgeConfig;
+
+pub mod pojo;
+pub mod user;
+pub mod user_manager;
+pub mod user_ref_manager;
 
 /// 解析枚举文本错误
 #[derive(Debug)]
@@ -116,9 +121,9 @@ pub enum MessageContent {
         text: String,
     },
     At {
-        bridge_user_id: Option<String>,
-        username: String,
+        id: String,
     },
+    AtAll,
     Image {
         /// 图片地址, 通常是cdn或者远程
         url: Option<String>,

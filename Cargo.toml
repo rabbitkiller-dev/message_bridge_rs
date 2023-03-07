@@ -7,11 +7,12 @@ edition = "2021"
 
 [dependencies]
 time = "0.3.14"
-tracing = "0.1.36"
 color-eyre = "0.6.2"
+tracing = "0.1.36"
 tracing-error = "0.2.0"
 tracing-appender = "0.2.2"
 tracing-subscriber = { version = "0.3.15", features = [
+    "fmt",
     "env-filter",
     "local-time",
     "time",
@@ -27,9 +28,8 @@ mime = "0.3.16"
 mime_guess = "2.0.4"
 md5 = "0.7.0"
 image-base64 = "0.1.0"
-js-sandbox = "0.1.6"
-
-mirai_rs = { path = "./mirai_rs" }
+proc_qq = "0.1.23"
+anyhow = "1.0.69"
 
 [dependencies.serenity]
 default-features = false
@@ -52,4 +52,5 @@ features = ["serde"]
 tokio-test = "*"
 
 [workspace]
-members = [ "mirai_rs" ]
+members = []
+

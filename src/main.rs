@@ -1,9 +1,8 @@
-#[macro_use]
-extern crate lazy_static;
+#![feature(fs_try_exists)]
 
 use std::sync::{Arc, Mutex};
-use tracing::{debug, info};
-
+use tracing::{Level, info};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use config::*;
 
 mod bridge;
@@ -11,7 +10,6 @@ mod bridge_cmd;
 mod bridge_data;
 mod bridge_dc;
 mod bridge_log;
-mod bridge_message_history;
 mod bridge_qq;
 mod cmd_adapter;
 mod config;
@@ -20,17 +18,11 @@ mod utils;
 
 pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-lazy_static! {
-    // static ref BRIDGE_MESSAGE_HISTORY: Arc<Mutex<bridge_message_history::BridgeMessageHistory>> =
-    //     Arc::new(Mutex::new(bridge_message_history::BridgeMessageHistory));
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 守卫日志文件。如果被drop，日志将无法写入到文件
-    let _logger_guards = logger::init_logger();
+    let _log_guard = logger::init_logger();
     let config = Arc::new(Config::new());
-    debug!("config: {:#?}", config);
+    info!("config: {:#?}", config);
     info!("config loaded");
     let bridge_service = bridge::BridgeService::new();
     let bridge_service = Arc::new(Mutex::new(bridge_service));
@@ -52,8 +44,58 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn _init_tracing_subscriber() {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_target(true)
+                .without_time(),
+        )
+        .with(
+            tracing_subscriber::filter::Targets::new()
+                .with_target("ricq", Level::DEBUG)
+                .with_target("proc_qq", Level::DEBUG)
+                // 这里改成自己的crate名称
+                .with_target("message_bridge_rs", Level::DEBUG),
+        )
+        .init();
+}
+
+/// # 2元表达式宏 - Result
+/// ## Example
+/// ```
+/// assert_eq!(elr!(Ok::<_, ()>(1) ;; 2), 1);
+/// assert_eq!(elr!(Err(0) ;; 42), 42);
+/// ```
+#[macro_export]
+macro_rules! elr {
+    ($opt:expr ;; $ret:expr) => {
+        if let Ok(v) = $opt {
+            v
+        } else {
+            $ret
+        }
+    };
+}
+/// # 2元表达式宏 - Option
+/// ## Example
+/// ```
+/// assert_eq!(elo!(Some(1) ;; 2), 1);
+/// assert_eq!(elo!(None ;; 42), 42);
+/// ```
+#[macro_export]
+macro_rules! elo {
+    ($opt:expr ;; $ret:expr) => {
+        if let Some(v) = $opt {
+            v
+        } else {
+            $ret
+        }
+    };
+}
+
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[allow(unused)]
 mod test {
     use super::*;
 
@@ -64,32 +106,22 @@ mod test {
     }
 
     #[test]
+    fn ts_el() {
+        assert_eq!(elr!(Ok::<_, ()>(1) ;; 2), 1);
+        assert_eq!(elr!(Err(0) ;; 42), 42);
+        assert_eq!(elo!(Some(1) ;; 2), 1);
+        assert_eq!(elo!(None ;; 42), 42);
+    }
+
+    #[test]
     fn test() -> Result<(), Box<dyn std::error::Error>> {
-        // let config = Config::new();
-        // let mut mirai = Mirai::new(
-        //     &config.miraiConfig.host,
-        //     config.miraiConfig.port,
-        //     &config.miraiConfig.verifyKey,
-        // )
-        // .bind_qq(3245538509);
-        // let resp = tokio_test::block_on(mirai.verify());
-        // println!("{:?}", resp);
-        // let resp = tokio_test::block_on(mirai.bind());
-
-        // println!("{:?}", resp);
-
         Ok(())
     }
 
     #[test]
-    fn getConfig() {
+    fn get_config() {
         let config = Config::new();
         println!("config:");
         println!("{:?}", config);
     }
 }
-
-mod test_dc;
-mod test_mirai;
-mod test_regex;
-mod test_reqwest;

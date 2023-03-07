@@ -1,82 +1,36 @@
 # 简介
-作者很懒, 暂时不写
+通过注册Bot机器人, 实现不同平台用户之间的消息进行同步
+
+((TODO: [补上示例图片]))
 
 ## 联系方式
 - Discord频道: https://discord.gg/jy3tr4Dq
 - QQ群：https://jq.qq.com/?_wv=1027&k=D8ymzW7M
 
 欢迎使用和部署, 加入上方联系方式也可以进行体验
+## 部署方式
+
+环境要求(CenterOS):
+- 科学上网
+- [Git](https://git-scm.com/download/linux):
+  - 命令: yum install git
+- [Rust + Cargo](https://forge.rust-lang.org/infra/other-installation-methods.html)
+  - 命令: curl https://sh.rustup.rs -sSf | sh
+- 配置文件
+  - 命令: cp config.simple.json config.json 
+  - 配置说明: CONFIG.md ((TODO: 说明config.json怎么配置))
+
+> ps: 以上环境请务必自选解决
+
+```shell
+> git clone https://github.com/rabbitkiller-dev/message_bridge_rs
+> cargo run
+```
+
 
 ## 功能情况
 
-### Bridge 消息桥功能
-
-- [x] 中转消息功能(发送与接收消息)
-- [ ] 桥用户(独立的用户体系, 将不同消息源用户关联)
-   - [ ] id
-   - [x] 用户名
-   - [x] 头像
-- [ ] 桥消息格式
-   - [x] 用户
-   - [x] 文本
-   - [x] 图片
-      - [x] 本地图片(path)
-      - [x] 远程图片(url)
-   - [ ] gif图片
-   - [ ] At
-   - [ ] AtAll
-   - [ ] 回复
-   - [ ] 其它
-
-
-### QQ Bridge QQ桥实现
- - [ ] qq消息转换成BridgeMessage并发送给桥(桥消息格式)
-     - [x] 用户
-     - [x] 文本
-     - [ ] 表情
-     - [ ] 分享(xml)
-     - [x] 图片
-     - [ ] gif图片
-     - [ ] At
-     - [ ] AtAll
-     - [ ] 回复
-     - [ ] 其它
- - [ ] 接收桥发送而来的消息并发送给qq群
-     - [x] 用户
-     - [x] 文本
-     - [x] 图片
-       - [ ] ~~本地图片(path)~~
-       - [x] 远程图片(url)
-     - [ ] gif图片
-     - [ ] At
-     - [ ] AtAll
-     - [ ] 回复
-     - [ ] 其它
-
-### Discord Bridge Discord桥实现
- - [ ] 将Discord消息转换成BridgeMessage(桥消息格式)
-     - [x] 用户
-     - [x] 文本
-     - [ ] embeds
-     - [ ] 表情
-     - [ ] gif图片
-     - [ ] At
-     - [ ] AtAll
-     - [ ] 回复
-     - [x] 附件
-       - [x] 图片
-       - [ ] ~~其它~~
- - [ ] 接收桥发送而来的消息并发送给discord频道
-     - [x] 用户
-     - [x] 文本
-     - [x] 图片
-       - [x] 本地图片(path)
-       - [x] 远程图片(url)
-     - [ ] gif图片
-     - [ ] At
-     - [ ] AtAll
-     - [ ] 回复
-     - [ ] 其它
+((TODO))
 
 ### 指令方面
 > QQ
@@ -120,4 +74,3 @@
 ```
  
 
- 
