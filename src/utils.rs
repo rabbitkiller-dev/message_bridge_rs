@@ -14,12 +14,7 @@ pub async fn download_and_cache(url: &str) -> Result<String, reqwest::Error> {
 
     let ext = match content_type {
         Some(value) => {
-            let mine = value.to_str().unwrap().parse::<mime::Mime>().unwrap();
-            let ext = match mime_guess::get_mime_extensions(&mine) {
-                Some(exts) => exts.first().unwrap().to_string(),
-                None => mine.subtype().to_string(),
-            };
-            format!(".{}", ext)
+            get_mine_type_ext(value.to_str().unwrap())
         }
         None => String::new(),
     };
@@ -30,6 +25,18 @@ pub async fn download_and_cache(url: &str) -> Result<String, reqwest::Error> {
     tokio::io::copy(&mut a, &mut f).await.unwrap();
 
     Ok(file_name.to_str().unwrap().to_string())
+}
+
+pub fn get_mine_type_ext(mime_type: &str) -> String {
+    if "image/jpeg".eq("mime_type") {
+        return "jpg".to_string();
+    }
+    let mine = value.to_str().unwrap().parse::<mime::Mime>().unwrap();
+    let ext = match mime_guess::get_mime_extensions(&mine) {
+        Some(exts) => exts.first().unwrap().to_string(),
+        None => mine.subtype().to_string(),
+    };
+    format!(".{}", ext)
 }
 
 pub async fn init() {
@@ -140,7 +147,7 @@ fn test3() {
 
 #[test]
 fn test4() {
-    let mine = "image/png".parse::<mime::Mime>().unwrap();
+    let mine = "image/jpeg".parse::<mime::Mime>().unwrap();
     println!("{:?}", mine);
     match mime_guess::get_mime_extensions(&mine) {
         Some(exts) => {
