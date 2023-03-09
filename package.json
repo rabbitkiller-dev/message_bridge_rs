@@ -4,8 +4,8 @@
     "description": "",
     "main": "server.js",
     "scripts": {
-        "start": "ts-node --project tsconfig.json server.ts ",
-        "start:dev": "nest start --watch"
+        "build": "tsc server.ts",
+        "start": "ts-node --project tsconfig.json server.ts "
     },
     "dependencies": {
         "discord-markdown": "^2.5.0"
