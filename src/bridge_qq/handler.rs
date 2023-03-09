@@ -34,7 +34,7 @@ async fn recv_group_msg(
         bridge_config: config.clone(),
         message_chain: Vec::new(),
         user: bridge::User {
-            name: format!("[QQ] {}({})", "", sender_id,),
+            name: format!("[QQ] {}({})", sender_nickname, sender_id),
             avatar_url: Some(format!("https://q1.qlogo.cn/g?b=qq&nk={sender_id}&s=100")),
             unique_id: sender_id,
             platform: BridgeClientPlatform::QQ,

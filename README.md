@@ -8,23 +8,33 @@
 - QQ群：https://jq.qq.com/?_wv=1027&k=D8ymzW7M
 
 欢迎使用和部署, 加入上方联系方式也可以进行体验
-## 部署方式
 
-环境要求(CenterOS):
-- 科学上网
-- [Git](https://git-scm.com/download/linux):
-  - 命令: yum install git
-- [Rust + Cargo](https://forge.rust-lang.org/infra/other-installation-methods.html)
-  - 命令: curl https://sh.rustup.rs -sSf | sh
-- 配置文件
-  - 命令: cp config.simple.json config.json 
-  - 配置说明: CONFIG.md ((TODO: 说明config.json怎么配置))
+## 环境要求
+1. 科学上网
+2. NodeJs (v14 以上)
+3. 配置config.json文件
+
+> CenterOS
+> 安装命令参考
+
+1. [Git](https://git-scm.com/download/linux): 命令: `yum install git`
+2. NodeJs (v14 以上): 命令自行baidu
+3. 全局安装pm2: `npm install -g pm2`
+4. [Rust + Cargo](https://forge.rust-lang.org/infra/other-installation-methods.html): 命令: `curl https://sh.rustup.rs -sSf | sh`
+5. 配置文件: `cp config.simple.json config.json` 配置说明: CONFIG.md ((TODO: 说明config.json怎么配置))
+
+## 部署方式
 
 > ps: 以上环境请务必自选解决
 
 ```shell
 > git clone https://github.com/rabbitkiller-dev/message_bridge_rs
-> cargo run
+> npm install
+
+## 启动 (pm2进程守护)
+> npm run build
+> pm2 start server.js --name bridge_js
+> pm2 start "cargo run" --name bridge_js
 ```
 
 
