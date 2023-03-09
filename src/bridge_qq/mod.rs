@@ -3,6 +3,7 @@ use crate::{bridge, Config};
 use proc_qq::re_exports::ricq::msg::MessageChain;
 use proc_qq::re_exports::ricq::version::ANDROID_WATCH;
 use proc_qq::re_exports::ricq_core::msg::elem;
+use proc_qq::FileSessionStore;
 use proc_qq::{
     Authentication, ClientBuilder, DeviceSource, ModuleEventHandler, ModuleEventProcess, ShowQR,
 };
@@ -147,7 +148,7 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
     };
 
     let client = ClientBuilder::new()
-        .priority_session("session.token")
+        .session_store(FileSessionStore::boxed("session.token"))
         .authentication(Authentication::QRCode)
         .show_rq(ShowQR::OpenBySystem)
         .device(DeviceSource::JsonFile("device.json".to_owned()))
@@ -156,13 +157,12 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
         .build()
         .await
         .unwrap();
-    // let arc = Arc::new(client);
-    let rq_client = client.rq_client.clone();
+    let arc = Arc::new(client);
     tokio::select! {
-        _ = client.start() => {
+        _ = proc_qq::run_client(arc.clone()) => {
             tracing::warn!("[QQ] QQ客户端退出");
         },
-        _ = sync_message(bridge.clone(), rq_client) => {
+        _ = sync_message(bridge.clone(), arc.rq_client.clone()) => {
             tracing::warn!("[QQ] QQ桥关闭");
         },
     }
