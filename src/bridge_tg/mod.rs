@@ -10,7 +10,8 @@ use teleser::{Auth, ClientBuilder, FileSessionStore, NewMessageProcess, Process,
 use tracing::{debug, error, warn};
 
 use crate::bridge;
-use crate::bridge::{BridgeClient, MessageContent};
+use crate::bridge::MessageContent::Plain;
+use crate::bridge::{BridgeClient, BridgeClientPlatform, BridgeMessage, MessageContent};
 use crate::config::{BridgeConfig, Config};
 
 pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
@@ -75,22 +76,28 @@ impl NewMessageProcess for TgNewMessage {
     async fn handle(&self, _client: &mut Client, event: &Message) -> Result<bool> {
         if !event.outgoing() {
             if let Chat::Group(group) = event.chat() {
-                if let Some(_config) = self.find_cfg_by_group(group.id()) {
-                    // todo
-                    // let mut bridge_message = BridgeMessage {
-                    //     id: uuid::Uuid::new_v4().to_string(),
-                    //     bridge_config: config.clone(),
-                    //     message_chain: Vec::new(),
-                    //     user: bridge::User {
-                    //         name: format!("[TG] {}({})", sender_nickname, sender_id),
-                    //         avatar_url: None,
-                    //         unique_id: sender_id,
-                    //         platform: BridgeClientPlatform::Telegram,
-                    //         display_id: sender_id,
-                    //         platform_id: group_id,
-                    //     },
-                    // };
-                    // bridge.send(bridge_message);
+                if let Some(config) = self.find_cfg_by_group(group.id()) {
+                    if let Some(Chat::User(user)) = event.sender() {
+                        let mut bridge_message = BridgeMessage {
+                            id: uuid::Uuid::new_v4().to_string(),
+                            bridge_config: config.clone(),
+                            message_chain: Vec::new(),
+                            user: bridge::User {
+                                name: format!("[TG] {}({})", user.full_name(), user.id()),
+                                avatar_url: None,
+                                unique_id: user.id() as u64,
+                                platform: BridgeClientPlatform::Telegram,
+                                display_id: user.id() as u64,
+                                platform_id: group.id() as u64,
+                            },
+                        };
+                        if !event.text().is_empty() {
+                            bridge_message.message_chain.push(Plain {
+                                text: event.text().to_owned(),
+                            });
+                            self.bridge.send(bridge_message);
+                        }
+                    }
                 }
             }
         }
