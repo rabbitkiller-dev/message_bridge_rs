@@ -3,6 +3,11 @@
     "botId": # 机器人的id #,
     "botToken": # 机器人的token #
   },
+  "telegramConfig": {
+    "apiId": # apiId # ,
+    "apiHash": # apiHash # ,
+    "botToken": # botToken #
+  },
   "bridges": [
     {
       "discord": {

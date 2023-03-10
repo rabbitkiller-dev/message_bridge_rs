@@ -46,3 +46,8 @@ go-cqhttp
 # qq数据
 device.json
 session.token
+qrcode.png
+
+# tg数据
+tg.pack.*/
+telegram.session
