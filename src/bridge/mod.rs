@@ -40,6 +40,7 @@ pub enum BridgeClientPlatform {
     Discord = 1 << 0,
     QQ = 1 << 1,
     Cmd = 1 << 2,
+    Telegram = 1 << 3,
 }
 
 impl BitOr for BridgeClientPlatform {
@@ -55,6 +56,7 @@ impl Display for BridgeClientPlatform {
             Discord => "DC",
             QQ => "QQ",
             Cmd => "CMD",
+            Telegram => "TG",
         };
         write!(f, "{}", name)
     }
