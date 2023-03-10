@@ -1,10 +1,14 @@
 use std::collections::HashMap;
+use std::future::Future;
+use std::io::Error;
 use std::sync::Arc;
 
 use anyhow::Result;
+use proc_qq::re_exports::image;
 use teleser::re_exports::async_trait::async_trait;
+use teleser::re_exports::grammers_client::types::media::Uploaded;
 use teleser::re_exports::grammers_client::types::{Chat, Media, Message};
-use teleser::re_exports::grammers_client::{Client, InitParams};
+use teleser::re_exports::grammers_client::{Client, InitParams, InputMessage};
 use teleser::re_exports::grammers_session::PackedChat;
 use teleser::{Auth, ClientBuilder, FileSessionStore, NewMessageProcess, Process, StaticBotToken};
 use tokio::io::AsyncWriteExt;
@@ -138,52 +142,89 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
         // 同时可以发一组图片消息，但是只有第一个图片消息可以带文字，文字会显示到一组消息的最下方
         // todo 发送图片消息和 @
         let mut builder = vec![];
+        let mut images = vec![];
         for x in &message.message_chain {
             match x {
                 MessageContent::Plain { text } => builder.push(text.as_str()),
                 MessageContent::At { .. } => {}
                 MessageContent::AtAll => {}
-                MessageContent::Image { .. } => {}
+                MessageContent::Image(image) => images.push(image),
                 MessageContent::Othen => {}
             }
         }
-        if !builder.is_empty() {
-            let send = builder.join("");
-            if !send.is_empty() {
-                let lock = teleser_client.inner_client.lock().await;
-                let inner_client = lock.clone();
-                drop(lock);
-                if let Some(inner_client) = inner_client {
-                    let chat = if let Some(pack) = pack_map.get(&message.bridge_config.tgGroup) {
-                        pack
-                    } else {
-                        // 递归所有对话的功能使用过于频繁会被限制，所以这里设置5分钟只能使用一次
-                        let now = chrono::Local::now().timestamp();
-                        if pack_time + 5 * 60 > now {
-                            warn!("[TG] pack flood wait : {}", message.bridge_config.tgGroup);
-                            continue;
+
+        let lock = teleser_client.inner_client.lock().await;
+        let inner_client = lock.clone();
+        drop(lock);
+        if let Some(inner_client) = inner_client {
+            let chat = if let Some(pack) = pack_map.get(&message.bridge_config.tgGroup) {
+                pack
+            } else {
+                // 递归所有对话的功能使用过于频繁会被限制，所以这里设置5分钟只能使用一次
+                let now = chrono::Local::now().timestamp();
+                if pack_time + 5 * 60 > now {
+                    warn!("[TG] pack flood wait : {}", message.bridge_config.tgGroup);
+                    continue;
+                }
+                pack_time = now;
+                let mut ds = inner_client.iter_dialogs();
+                loop {
+                    match ds.next().await {
+                        Ok(Some(dialog)) => {
+                            pack_map.insert(dialog.chat.id(), dialog.chat.pack());
                         }
-                        pack_time = now;
-                        let mut ds = inner_client.iter_dialogs();
-                        loop {
-                            match ds.next().await {
-                                Ok(Some(dialog)) => {
-                                    pack_map.insert(dialog.chat.id(), dialog.chat.pack());
-                                }
-                                Ok(None) => break,
-                                Err(err) => {
-                                    error!("[TG] pack err : {:?}", err);
-                                    continue 'outer;
-                                }
-                            }
-                        }
-                        if let Some(pack) = pack_map.get(&message.bridge_config.tgGroup) {
-                            pack
-                        } else {
-                            error!("[TG] group not found : {}", message.bridge_config.tgGroup);
+                        Ok(None) => break,
+                        Err(err) => {
+                            error!("[TG] pack err : {:?}", err);
                             continue 'outer;
                         }
-                    };
+                    }
+                }
+                if let Some(pack) = pack_map.get(&message.bridge_config.tgGroup) {
+                    pack
+                } else {
+                    error!("[TG] group not found : {}", message.bridge_config.tgGroup);
+                    continue 'outer;
+                }
+            };
+            // send message
+            if !images.is_empty() {
+                for x in images {
+                    match x.clone().load_data().await {
+                        Ok(data) => {
+                            match image::guess_format(&data) {
+                                Ok(format) => {
+                                    let len = data.len();
+                                    let mut reader = std::io::Cursor::new(data);
+                                    let upload = inner_client
+                                        .upload_stream(
+                                            &mut reader,
+                                            len,
+                                            format!("file.{}", format.extensions_str()[0]),
+                                        )
+                                        .await;
+                                    match upload {
+                                        Ok(img) => {
+                                            let _ = inner_client
+                                                .send_message(
+                                                    chat.clone(),
+                                                    InputMessage::default().photo(img),
+                                                )
+                                                .await;
+                                        }
+                                        Err(_) => {}
+                                    }
+                                }
+                                Err(_) => {}
+                            };
+                        }
+                        Err(_) => {}
+                    }
+                }
+            }
+            if !builder.is_empty() {
+                let send = builder.join("");
+                if !send.is_empty() {
                     let _ = inner_client.send_message(chat.clone(), send).await;
                 }
             }
