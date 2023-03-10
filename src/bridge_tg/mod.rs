@@ -3,10 +3,11 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use teleser::re_exports::async_trait::async_trait;
-use teleser::re_exports::grammers_client::types::{Chat, Message};
+use teleser::re_exports::grammers_client::types::{Chat, Media, Message};
 use teleser::re_exports::grammers_client::{Client, InitParams};
 use teleser::re_exports::grammers_session::PackedChat;
 use teleser::{Auth, ClientBuilder, FileSessionStore, NewMessageProcess, Process, StaticBotToken};
+use tokio::io::AsyncWriteExt;
 use tracing::{debug, error, warn};
 
 use crate::bridge;
@@ -73,7 +74,7 @@ impl TgNewMessage {
 
 #[async_trait]
 impl NewMessageProcess for TgNewMessage {
-    async fn handle(&self, _client: &mut Client, event: &Message) -> Result<bool> {
+    async fn handle(&self, client: &mut Client, event: &Message) -> Result<bool> {
         if !event.outgoing() {
             if let Chat::Group(group) = event.chat() {
                 if let Some(config) = self.find_cfg_by_group(group.id()) {
@@ -91,6 +92,17 @@ impl NewMessageProcess for TgNewMessage {
                                 platform_id: group.id() as u64,
                             },
                         };
+                        // 下载图片
+                        let media = event.media();
+                        if let Some(Media::Photo(_)) = &media {
+                            // download media 存在一定时间以后不能使用的BUG, 已经使用临时仓库解决
+                            // see: https://github.com/Lonami/grammers/issues/166
+                            match download_media(client, &media.unwrap()).await {
+                                // todo
+                                Ok(_) => {}
+                                Err(_) => {}
+                            }
+                        }
                         if !event.text().is_empty() {
                             bridge_message.message_chain.push(Plain {
                                 text: event.text().to_owned(),
@@ -121,12 +133,17 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
         if let Some(avatar_url) = &message.user.avatar_url {
             debug!("用户头像: {:?}", avatar_url);
         }
-        //
+        // telegram 每条消息只能带一个附件或一个图片
+        // 同时可以发一组图片消息，但是只有第一个图片消息可以带文字，文字会显示到一组消息的最下方
+        // todo 发送图片消息和 @
         let mut builder = vec![];
         for x in &message.message_chain {
             match x {
                 MessageContent::Plain { text } => builder.push(text.as_str()),
-                _ => {}
+                MessageContent::At { .. } => {}
+                MessageContent::AtAll => {}
+                MessageContent::Image { .. } => {}
+                MessageContent::Othen => {}
             }
         }
         if !builder.is_empty() {
@@ -139,6 +156,7 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
                     let chat = if let Some(pack) = pack_map.get(&message.bridge_config.tgGroup) {
                         pack
                     } else {
+                        // 递归所有对话的功能使用过于频繁会被限制，所以这里设置5分钟只能使用一次
                         let now = chrono::Local::now().timestamp();
                         if pack_time + 5 * 60 > now {
                             warn!("[TG] pack flood wait : {}", message.bridge_config.tgGroup);
@@ -170,4 +188,13 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
             }
         }
     }
+}
+
+async fn download_media(c: &mut teleser::InnerClient, media: &Media) -> Result<Vec<u8>> {
+    let mut data = Vec::<u8>::new();
+    let mut download = c.iter_download(&media);
+    while let Some(chunk) = download.next().await? {
+        data.write(chunk.as_slice()).await?;
+    }
+    Ok(data)
 }

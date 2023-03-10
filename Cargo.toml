@@ -30,7 +30,7 @@ md5 = "0.7.0"
 image-base64 = "0.1.0"
 proc_qq = "0.1.29"
 anyhow = "1.0.69"
-teleser = "0.1.2"
+teleser = { git = "https://github.com/niuhuan/teleser-rs.git", branch = "patched" }
 
 [dependencies.serenity]
 default-features = false
