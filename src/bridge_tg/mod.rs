@@ -12,7 +12,7 @@ use tracing::{debug, error, warn};
 
 use crate::bridge;
 use crate::bridge::MessageContent::Plain;
-use crate::bridge::{BridgeClient, BridgeClientPlatform, BridgeMessage, MessageContent};
+use crate::bridge::{BridgeClient, BridgeClientPlatform, BridgeMessage, Image, MessageContent};
 use crate::config::{BridgeConfig, Config};
 
 pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
@@ -94,12 +94,13 @@ impl NewMessageProcess for TgNewMessage {
                         };
                         // 下载图片
                         let media = event.media();
-                        if let Some(Media::Photo(_)) = &media {
+                        if let Some(Media::Photo(photo)) = &media {
                             // download media 存在一定时间以后不能使用的BUG, 已经使用临时仓库解决
                             // see: https://github.com/Lonami/grammers/issues/166
                             match download_media(client, &media.unwrap()).await {
-                                // todo
-                                Ok(_) => {}
+                                Ok(data) => bridge_message
+                                    .message_chain
+                                    .push(MessageContent::Image(Image::Buff(data))),
                                 Err(_) => {}
                             }
                         }

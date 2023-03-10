@@ -1,5 +1,5 @@
-use crate::bridge_qq::handler::DefaultHandler;
-use crate::{bridge, Config};
+use std::sync::Arc;
+
 use proc_qq::re_exports::ricq::msg::MessageChain;
 use proc_qq::re_exports::ricq::version::ANDROID_WATCH;
 use proc_qq::re_exports::ricq_core::msg::elem;
@@ -7,8 +7,10 @@ use proc_qq::FileSessionStore;
 use proc_qq::{
     Authentication, ClientBuilder, DeviceSource, ModuleEventHandler, ModuleEventProcess, ShowQR,
 };
-use std::sync::Arc;
 use tracing::{debug, error};
+
+use crate::bridge_qq::handler::DefaultHandler;
+use crate::{bridge, Config};
 
 mod handler;
 
@@ -95,20 +97,22 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
                 // @桥用户 转 @qq用户 或 @文本
                 bridge::MessageContent::At { id } => proc_at(id, &mut send_content).await,
                 // 桥图片 转 qq图片
-                bridge::MessageContent::Image { url, path } => {
+                bridge::MessageContent::Image(image) => {
                     debug!("桥消息-图片: {:?}", message.user.avatar_url);
-                    if let Some(url) = url {
-                        let image = upload_group_image(
-                            message.bridge_config.qqGroup,
-                            url,
-                            rq_client.clone(),
-                        )
-                        .await;
-                        if let Result::Ok(image) = image {
-                            send_content.push(image);
+                    match image.clone().load_data().await {
+                        Ok(data) => {
+                            match rq_client
+                                .upload_group_image(message.bridge_config.qqGroup as i64, data)
+                                .await
+                            {
+                                Ok(image) => {
+                                    send_content.push(image);
+                                }
+                                Err(_) => {}
+                            }
                         }
-                    };
-                    if let Some(_) = path {};
+                        Err(_) => {}
+                    }
                 }
                 _ => send_content.push(elem::Text::new("{未处理的桥信息}".to_string())),
             }

@@ -1,16 +1,18 @@
 //! 负责处理 qq 消息
 
-use crate::bridge::{BridgeClient, BridgeClientPlatform, BridgeMessage, MessageContent};
-use crate::config::BridgeConfig;
-use crate::{bridge, elo, utils, Config};
+use std::sync::Arc;
+
 use proc_qq::re_exports::async_trait::async_trait;
 use proc_qq::re_exports::ricq_core::msg::elem;
 use proc_qq::{
     FriendMessageEvent, GroupMessageEvent, GroupTempMessageEvent, LoginEventProcess,
     MessageChainPointTrait, MessageEvent, MessageEventProcess,
 };
-use std::sync::Arc;
 use tracing::{debug, error, info};
+
+use crate::bridge::{BridgeClient, BridgeClientPlatform, BridgeMessage, Image, MessageContent};
+use crate::config::BridgeConfig;
+use crate::{bridge, elo, utils, Config};
 
 use super::{apply_bridge_user, RqClient};
 
@@ -26,7 +28,10 @@ async fn recv_group_msg(
     let group_id = msg.group_code as u64;
     let sender_id = msg.from_uin as u64;
     let sender_nickname = msg.group_card.clone();
-    info!("[{}]{group_id}-[{sender_nickname}]{sender_id} '{}'", msg.group_name, msg.elements);
+    info!(
+        "[{}]{group_id}-[{sender_nickname}]{sender_id} '{}'",
+        msg.group_name, msg.elements
+    );
 
     let _bridge_user = apply_bridge_user(sender_id, sender_nickname.as_str()).await;
     let mut bridge_message = BridgeMessage {
@@ -73,10 +78,13 @@ async fn recv_group_msg(
                         None
                     }
                 };
-                bridge_message.message_chain.push(MessageContent::Image {
-                    url: Some(group_image.url()),
-                    path: file_path,
-                });
+                bridge_message.message_chain.push(MessageContent::Image(
+                    if let Some(path) = file_path {
+                        Image::Path(path)
+                    } else {
+                        Image::Url(group_image.url())
+                    },
+                ));
             }
             elem::RQElem::Other(o) => {
                 debug!("未解读 elem: {:?}", o);
