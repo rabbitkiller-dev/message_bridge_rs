@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde::Serialize;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use crate::bridge;
 
@@ -28,12 +29,24 @@ pub struct BridgeUser {
 }
 
 impl BridgeUser {
+    /**
+     * 查询该用户指定平台关联的用户
+     */
     pub async fn findRefByPlatform(&self, platform: &str) -> Option<BridgeUser> {
         return if let Some(ref_id) = &self.ref_id {
-            bridge::user_manager::bridge_user_manager.lock().await.findByRefAndPlatform(ref_id, platform).await
+            bridge::user_manager::bridge_user_manager
+                .lock()
+                .await
+                .findByRefAndPlatform(ref_id, platform)
+                .await
         } else {
             None
-        }
+        };
+    }
+}
 
+impl Display for BridgeUser {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "[{}] {}", self.platform, self.display_text)
     }
 }

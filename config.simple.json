@@ -1,21 +1,22 @@
 {
   "discordConfig": {
-    "botId": # 机器人的id #,
+    "botId": # 机器人的id(u64) #,
     "botToken": # 机器人的token #
   },
   "telegramConfig": {
-    "apiId": # apiId # ,
+    "apiId": # apiId(i32) # ,
     "apiHash": # apiHash # ,
     "botToken": # botToken #
   },
   "bridges": [
     {
       "discord": {
-        "id": # 频道的Webhook id #,
+        "id": # 频道的Webhook id(u64) #,
         "token": # 频道的token #,
-        "channelId": # 频道的id #
+        "channelId": # 频道的id(u64) #
       },
-      "qqGroup": # qq群号 #,
+      "tgGroup": # telegram群号 #,
+      "qqGroup": # qq群号(u64) #,
       "enable": true
     }
   ]

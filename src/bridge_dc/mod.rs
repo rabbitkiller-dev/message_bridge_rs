@@ -6,9 +6,9 @@ use serenity::model::channel::AttachmentType;
 use serenity::model::guild::Member;
 use serenity::model::webhook::Webhook;
 use serenity::prelude::*;
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, warn};
 
-use crate::bridge::{BridgeClientPlatform, Image};
+use crate::bridge::Image;
 // use crate::bridge_message_history::{BridgeMessageHistory, Platform};
 use crate::{bridge, bridge_dc, Config};
 
@@ -74,10 +74,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                         continue;
                     }
                     // 没有关联账号用标准格式发送消息
-                    content.push(format!(
-                        "@[{}] {}",
-                        bridge_user.platform, bridge_user.display_text
-                    ));
+                    content.push(format!("@{}", bridge_user.to_string()));
                     // trace!("用户'{}'收到@", username);
                     // let re = Regex::new(r"@\[DC\] ([^\n]+)?#(\d\d\d\d)").unwrap();
                     // let caps = re.captures(username);
@@ -105,37 +102,21 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
             };
         }
         debug!(?content, ?fils, "桥内消息链组装完成");
-
-        if let BridgeClientPlatform::Cmd = message.user.platform {
-            match http
-                .get_channel(message.bridge_config.discord.channelId)
-                .await
-            {
-                Ok(channel) => {
-                    if let Err(err) = channel
-                        .id()
-                        .send_message(&http, |w| w.content(content.join("")))
-                        .await
-                    {
-                        error!(?err, "发送指令反馈失败！")
-                    } else {
-                        debug!("指令反馈完成");
-                    }
-                }
-                Err(err) => error!(?err, "获取 discord 频道失败！"),
-            }
-            continue;
-        }
-
+        let bridge_user = bridge::user_manager::bridge_user_manager
+            .lock()
+            .await
+            .get(&message.bridge_user_id)
+            .await
+            .unwrap();
         let resp = webhook
             .execute(&http, true, |w| {
                 // 配置发送者头像
-                if let Some(url) = &message.user.avatar_url {
+                if let Some(url) = &message.avatar_url {
                     w.avatar_url(url.as_str());
                 }
-                debug!("消息头像url：{:?}", message.user.avatar_url);
+                debug!("消息头像url：{:?}", message.avatar_url);
                 // 配置发送者用户名
-                w.username(message.user.name.clone());
+                w.username(bridge_user.display_text);
                 if content.len() == 0 && fils.len() == 0 {
                     content.push("{本次发送的消息没有内容}".to_string());
                 }

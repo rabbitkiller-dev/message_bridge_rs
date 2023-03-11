@@ -1,7 +1,8 @@
 #![feature(fs_try_exists)]
 
 use config::*;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use tracing::{info, Level};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -12,7 +13,7 @@ mod bridge_dc;
 mod bridge_log;
 mod bridge_qq;
 mod bridge_tg;
-mod cmd_adapter;
+// mod cmd_adapter;
 mod config;
 mod logger;
 mod utils;
@@ -28,13 +29,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bridge_service = bridge::BridgeService::new();
     let bridge_service = Arc::new(Mutex::new(bridge_service));
     let bridge_dc_client =
-        bridge::BridgeService::create_client("bridge_dc_client", bridge_service.clone());
+        bridge::BridgeService::create_client("bridge_dc_client", bridge_service.clone()).await;
     let bridge_qq_client =
-        bridge::BridgeService::create_client("bridge_qq_client", bridge_service.clone());
+        bridge::BridgeService::create_client("bridge_qq_client", bridge_service.clone()).await;
     let bridge_tg_client =
-        bridge::BridgeService::create_client("bridge_tg_client", bridge_service.clone());
-    let bridge_cmd_adapter =
-        bridge::BridgeService::create_client("bridge_cmd_adapter", bridge_service.clone());
+        bridge::BridgeService::create_client("bridge_tg_client", bridge_service.clone()).await;
+    // let bridge_cmd_adapter =
+    // bridge::BridgeService::create_client("bridge_cmd_adapter", bridge_service.clone()).await;
     // let a = Some(bridge_service.clone());
     info!("bridge ready");
 
@@ -42,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ = bridge_dc::start(config.clone(), bridge_dc_client) => {},
         _ = bridge_qq::start(config.clone(), bridge_qq_client) => {},
         _ = bridge_tg::start(config.clone(), bridge_tg_client) => {},
-        _ = cmd_adapter::start(config.clone(), bridge_cmd_adapter) => {},
+        // _ = cmd_adapter::start(config.clone(), bridge_cmd_adapter) => {},
     }
 
     Ok(())

@@ -32,19 +32,17 @@ async fn recv_group_msg(
         "[{}]{group_id}-[{sender_nickname}]{sender_id} '{}'",
         msg.group_name, msg.elements
     );
-
-    let _bridge_user = apply_bridge_user(sender_id, sender_nickname.as_str()).await;
-    let mut bridge_message = BridgeMessage {
-        id: uuid::Uuid::new_v4().to_string(),
+    // 为发送者申请桥用户
+    let bridge_user = apply_bridge_user(sender_id, sender_nickname.as_str()).await;
+    // 组装向桥发送的消息体表单
+    let mut bridge_message = bridge::pojo::BridgeSendMessageForm {
+        bridge_user_id: bridge_user.id,
+        avatar_url: Some(format!("https://q1.qlogo.cn/g?b=qq&nk={sender_id}&s=100")),
         bridge_config: config.clone(),
         message_chain: Vec::new(),
-        user: bridge::User {
-            name: format!("[QQ] {}({})", sender_nickname, sender_id),
-            avatar_url: Some(format!("https://q1.qlogo.cn/g?b=qq&nk={sender_id}&s=100")),
-            unique_id: sender_id,
-            platform: BridgeClientPlatform::QQ,
-            display_id: sender_id,
-            platform_id: group_id,
+        origin_message: bridge::pojo::BridgeMessageRefPO {
+            origin_id: "".to_string(),
+            platform: "QQ".to_string(),
         },
     };
 
@@ -95,9 +93,9 @@ async fn recv_group_msg(
                     text: "[未处理]".to_string(),
                 });
             }
-        } // match
-    } // for
-    bridge.send(bridge_message);
+        }
+    }
+    bridge.send_message(bridge_message).await;
     OKK
 }
 
