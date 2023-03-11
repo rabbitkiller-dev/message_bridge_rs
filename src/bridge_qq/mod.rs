@@ -14,7 +14,10 @@ use tracing::{debug, error};
 use crate::bridge_qq::handler::DefaultHandler;
 use crate::{bridge, Config};
 
+mod group_message_id;
 mod handler;
+
+use group_message_id::GroupMessageId;
 
 type RqClient = proc_qq::re_exports::ricq::Client;
 
@@ -87,18 +90,20 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
         //     elements: reply_content,
         // };
         // send_content.with_reply(reply);
-        // send_content.0.push(ricq_core::pb::msg::elem::Elem::SrcMsg(ricq_core::pb::msg::SourceMsg {
-        //     orig_seqs: vec![6539],
-        //     sender_uin: Some(243249439),
-        //     time: Some(1678267174),
-        //     flag: Some(1),
-        //     elems: reply_content.into(),
-        //     rich_msg: Some(vec![]),
-        //     pb_reserve: Some(vec![]),
-        //     src_msg: Some(vec![]),
-        //     troop_name: Some(vec![]),
-        //     ..Default::default()
-        // }));
+        // send_content.0.push(ricq_core::pb::msg::elem::Elem::SrcMsg(
+        //     ricq_core::pb::msg::SourceMsg {
+        //         orig_seqs: vec![6539],
+        //         sender_uin: Some(243249439),
+        //         time: Some(1678267174),
+        //         flag: Some(1),
+        //         elems: reply_content.into(),
+        //         rich_msg: Some(vec![]),
+        //         pb_reserve: Some(vec![]),
+        //         src_msg: Some(vec![]),
+        //         troop_name: Some(vec![]),
+        //         ..Default::default()
+        //     },
+        // ));
 
         // 配置发送者头像
         if let Some(avatar_url) = &message.avatar_url {
@@ -162,15 +167,20 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
             .await
             .ok();
         if let Some(receipt) = result {
-            let origin_id = receipt.seqs.first().unwrap().to_string();
-
+            // 发送成功后, 将平台消息和桥消息进行关联, 为以后进行回复功能
+            let seqs = receipt.seqs.first().unwrap().clone();
+            let group_message_id = GroupMessageId {
+                group_id: message.bridge_config.qqGroup,
+                seqs,
+                time: receipt.time,
+            };
             bridge::BRIDGE_MESSAGE_MANAGER
                 .lock()
                 .await
                 .ref_bridge_message(bridge::pojo::BridgeMessageRefMessageForm {
                     bridge_message_id: message.id,
                     platform: "QQ".to_string(),
-                    origin_id,
+                    origin_id: group_message_id.to_string(),
                 })
                 .await;
         }
@@ -205,7 +215,7 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
         .authentication(Authentication::QRCode)
         .show_rq(ShowQR::OpenBySystem)
         .device(DeviceSource::JsonFile("device.json".to_owned()))
-        .version(&MACOS)
+        .version(&ANDROID_WATCH)
         .modules(vec![module])
         .build()
         .await

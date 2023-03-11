@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::select! {
         _ = bridge_dc::start(config.clone(), bridge_dc_client) => {},
         _ = bridge_qq::start(config.clone(), bridge_qq_client) => {},
-        _ = bridge_tg::start(config.clone(), bridge_tg_client) => {},
+        // _ = bridge_tg::start(config.clone(), bridge_tg_client) => {},
         // _ = cmd_adapter::start(config.clone(), bridge_cmd_adapter) => {},
     }
 

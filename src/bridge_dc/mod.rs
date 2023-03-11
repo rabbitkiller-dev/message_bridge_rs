@@ -126,14 +126,17 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
 
         match resp {
             Ok(result) => {
-                if let Some(_msg) = result {
-                    // BridgeMessageHistory::insert(
-                    //     &message.id,
-                    //     Platform::Discord,
-                    //     msg.id.0.to_string().as_str(),
-                    // )
-                    // .await
-                    // .unwrap();
+                if let Some(msg) = result {
+                    // 发送成功后, 将平台消息和桥消息进行关联, 为以后进行回复功能
+                    bridge::BRIDGE_MESSAGE_MANAGER
+                        .lock()
+                        .await
+                        .ref_bridge_message(bridge::pojo::BridgeMessageRefMessageForm {
+                            bridge_message_id: message.id.clone(),
+                            platform: "DC".to_string(),
+                            origin_id: msg.id.0.to_string(),
+                        })
+                        .await;
                 } else {
                     error!("同步的消息没有返回消息id")
                 }

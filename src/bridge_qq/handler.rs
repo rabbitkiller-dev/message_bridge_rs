@@ -14,6 +14,7 @@ use crate::bridge::{BridgeClient, BridgeClientPlatform, BridgeMessage, Image, Me
 use crate::config::BridgeConfig;
 use crate::{bridge, elo, utils, Config};
 
+use super::group_message_id::GroupMessageId;
 use super::{apply_bridge_user, RqClient};
 
 const OKK: anyhow::Result<bool> = Ok(true);
@@ -34,6 +35,9 @@ async fn recv_group_msg(
     );
     // 为发送者申请桥用户
     let bridge_user = apply_bridge_user(sender_id, sender_nickname.as_str()).await;
+    // 并接该群消息的id
+    let qq_message_id =
+        GroupMessageId::new(group_id, msg.seqs.get(0).unwrap().clone(), msg.time as i64);
     // 组装向桥发送的消息体表单
     let mut bridge_message = bridge::pojo::BridgeSendMessageForm {
         bridge_user_id: bridge_user.id,
@@ -41,7 +45,7 @@ async fn recv_group_msg(
         bridge_config: config.clone(),
         message_chain: Vec::new(),
         origin_message: bridge::pojo::BridgeMessageRefPO {
-            origin_id: "".to_string(),
+            origin_id: qq_message_id.to_string(),
             platform: "QQ".to_string(),
         },
     };
