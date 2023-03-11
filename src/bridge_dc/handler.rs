@@ -7,7 +7,7 @@ use serenity::model::Timestamp;
 use serenity::prelude::*;
 use tracing::{debug, error, info, instrument, trace};
 
-use crate::bridge::BridgeClientPlatform;
+use crate::bridge::{BridgeClientPlatform, Image};
 use crate::bridge_dc::apply_bridge_user;
 use crate::{bridge, Config};
 
@@ -130,13 +130,10 @@ impl EventHandler for Handler {
                     let suffix = if animated { "gif" } else { "png" };
                     bridge_message
                         .message_chain
-                        .push(bridge::MessageContent::Image {
-                            url: Some(format!(
-                                "https://cdn.discordapp.com/emojis/{}.{}",
-                                id, suffix
-                            )),
-                            path: None,
-                        });
+                        .push(bridge::MessageContent::Image(Image::Url(format!(
+                            "https://cdn.discordapp.com/emojis/{}.{}",
+                            id, suffix
+                        ))));
                 }
             }
         }
@@ -145,10 +142,7 @@ impl EventHandler for Handler {
             trace!(attachment.url);
             bridge_message
                 .message_chain
-                .push(bridge::MessageContent::Image {
-                    url: Some(attachment.url),
-                    path: None,
-                });
+                .push(bridge::MessageContent::Image(Image::Url(attachment.url)));
         }
         debug!("dc 桥的消息链：{:#?}", bridge_message.message_chain);
 

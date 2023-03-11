@@ -1,9 +1,9 @@
 #![feature(fs_try_exists)]
 
-use std::sync::{Arc, Mutex};
-use tracing::{Level, info};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use config::*;
+use std::sync::{Arc, Mutex};
+use tracing::{info, Level};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod bridge;
 mod bridge_cmd;
@@ -11,6 +11,7 @@ mod bridge_data;
 mod bridge_dc;
 mod bridge_log;
 mod bridge_qq;
+mod bridge_tg;
 mod cmd_adapter;
 mod config;
 mod logger;
@@ -30,6 +31,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         bridge::BridgeService::create_client("bridge_dc_client", bridge_service.clone());
     let bridge_qq_client =
         bridge::BridgeService::create_client("bridge_qq_client", bridge_service.clone());
+    let bridge_tg_client =
+        bridge::BridgeService::create_client("bridge_tg_client", bridge_service.clone());
     let bridge_cmd_adapter =
         bridge::BridgeService::create_client("bridge_cmd_adapter", bridge_service.clone());
     // let a = Some(bridge_service.clone());
@@ -38,6 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::select! {
         _ = bridge_dc::start(config.clone(), bridge_dc_client) => {},
         _ = bridge_qq::start(config.clone(), bridge_qq_client) => {},
+        _ = bridge_tg::start(config.clone(), bridge_tg_client) => {},
         _ = cmd_adapter::start(config.clone(), bridge_cmd_adapter) => {},
     }
 

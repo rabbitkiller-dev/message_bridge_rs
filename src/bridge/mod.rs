@@ -40,6 +40,7 @@ pub enum BridgeClientPlatform {
     Discord = 1 << 0,
     QQ = 1 << 1,
     Cmd = 1 << 2,
+    Telegram = 1 << 3,
 }
 
 impl BitOr for BridgeClientPlatform {
@@ -55,6 +56,7 @@ impl Display for BridgeClientPlatform {
             Discord => "DC",
             QQ => "QQ",
             Cmd => "CMD",
+            Telegram => "TG",
         };
         write!(f, "{}", name)
     }
@@ -117,20 +119,28 @@ pub type MessageChain = Vec<MessageContent>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum MessageContent {
-    Plain {
-        text: String,
-    },
-    At {
-        id: String,
-    },
+    Plain { text: String },
+    At { id: String },
     AtAll,
-    Image {
-        /// 图片地址, 通常是cdn或者远程
-        url: Option<String>,
-        /// 本机图片地址
-        path: Option<String>,
-    },
+    Image(Image),
     Othen,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Image {
+    Url(String),
+    Path(String),
+    Buff(Vec<u8>),
+}
+
+impl Image {
+    pub(crate) async fn load_data(self) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Image::Url(url) => Ok(reqwest::get(url).await?.bytes().await?.to_vec()),
+            Image::Path(path) => Ok(tokio::fs::read(path).await?),
+            Image::Buff(data) => Ok(data),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

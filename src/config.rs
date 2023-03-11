@@ -10,6 +10,8 @@ pub struct Config {
     pub qq_config: QQConfig,
     #[serde(rename = "discordConfig")]
     pub discord_config: DiscordConfig,
+    #[serde(rename = "telegramConfig")]
+    pub telegram_config: TelegramConfig,
     pub bridges: Vec<BridgeConfig>,
 }
 
@@ -36,10 +38,18 @@ pub struct DiscordConfig {
     pub botToken: String,
 }
 
+#[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
+pub struct TelegramConfig {
+    pub apiId: i32,
+    pub apiHash: String,
+    pub botToken: String,
+}
+
 #[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq)]
 pub struct BridgeConfig {
     pub discord: DiscordBridgeConfig,
     pub qqGroup: u64,
+    pub tgGroup: i64,
     pub enable: bool,
 }
 

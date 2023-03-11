@@ -8,13 +8,14 @@ use serenity::model::webhook::Webhook;
 use serenity::prelude::*;
 use tracing::{debug, error, info, instrument, trace, warn};
 
-use crate::bridge::BridgeClientPlatform;
+use crate::bridge::{BridgeClientPlatform, Image};
 // use crate::bridge_message_history::{BridgeMessageHistory, Platform};
 use crate::{bridge, bridge_dc, Config};
 
 pub mod handler;
 
 pub use handler::*;
+use proc_qq::re_exports::image;
 
 /**
  *
@@ -41,18 +42,21 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
         for chain in &message.message_chain {
             match chain {
                 bridge::MessageContent::Plain { text } => content.push(text.clone()),
-                bridge::MessageContent::Image { url, path } => {
-                    trace!(?url, ?path, "图片");
-                    if let Some(path) = path {
-                        let path = Path::new(path);
-                        fils.push(AttachmentType::Path(path));
-                        continue;
+                bridge::MessageContent::Image(image) => match image {
+                    Image::Url(url) => {
+                        fils.push(AttachmentType::Image(url::Url::parse(url).unwrap()))
                     }
-                    if let Some(url) = url {
-                        let url = url::Url::parse(url).unwrap();
-                        fils.push(AttachmentType::Image(url));
+                    Image::Path(path) => fils.push(AttachmentType::Path(Path::new(path))),
+                    Image::Buff(data) => {
+                        match image::guess_format(data) {
+                            Ok(format) => fils.push(AttachmentType::Bytes {
+                                data: data.into(),
+                                filename: format!("file.{}", format.extensions_str()[0]),
+                            }),
+                            Err(_) => {}
+                        };
                     }
-                }
+                },
                 bridge::MessageContent::At { id } => {
                     let bridge_user = bridge::user_manager::bridge_user_manager
                         .lock()
