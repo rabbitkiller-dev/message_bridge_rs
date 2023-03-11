@@ -129,7 +129,7 @@ impl NewMessageProcess for TgNewMessage {
                         let bridge_user = apply_bridge_user(user.id(), user.full_name()).await;
                         // 组装向桥发送的消息体表单
                         let mut bridge_message = bridge::pojo::BridgeSendMessageForm {
-                            bridge_user_id: bridge_user.id,
+                            sender_id: bridge_user.id,
                             avatar_url: None,
                             bridge_config: config.clone(),
                             message_chain: Vec::new(),
@@ -234,7 +234,7 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
         let bridge_user = bridge::user_manager::bridge_user_manager
             .lock()
             .await
-            .get(&message.bridge_user_id)
+            .get(&message.sender_id)
             .await
             .unwrap();
         // telegram 每条消息只能带一个附件或一个图片

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct BridgeSendMessageForm {
     // 桥用户
-    pub bridge_user_id: String,
+    pub sender_id: String,
     // 头像链接
     pub avatar_url: Option<String>,
     // 消息配置(TODO: 抽象配置)

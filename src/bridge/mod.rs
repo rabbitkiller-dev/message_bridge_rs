@@ -113,7 +113,7 @@ mod ts_bridge_client_platform {
 pub struct BridgeMessage {
     pub id: String,
     // 桥用户
-    pub bridge_user_id: String,
+    pub sender_id: String,
     // 头像链接
     pub avatar_url: Option<String>,
     pub bridge_config: BridgeConfig,
@@ -260,11 +260,11 @@ impl BridgeClient {
         //     .iter()
         //     .filter(|client| &client.name != &self.name);
 
-        let bridge_user_id = message.bridge_user_id.clone();
+        let sender_id = message.sender_id.clone();
         let avatar_url = message.avatar_url.clone();
         let bridge_message = bridge::BridgeMessage {
             id,
-            bridge_user_id,
+            sender_id,
             avatar_url,
             bridge_config: message.bridge_config,
             message_chain: message.message_chain,

@@ -118,7 +118,7 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
         let bridge_user = bridge::user_manager::bridge_user_manager
             .lock()
             .await
-            .get(&message.bridge_user_id)
+            .get(&message.sender_id)
             .await;
         // 配置发送者用户名
         send_content.push(elem::Text::new(format!(

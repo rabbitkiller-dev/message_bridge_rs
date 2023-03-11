@@ -7,7 +7,7 @@ use serenity::model::Timestamp;
 use serenity::prelude::*;
 use tracing::{debug, error, info, instrument, trace};
 
-use crate::bridge::{BridgeClientPlatform, Image};
+use crate::bridge::Image;
 use crate::bridge_dc::apply_bridge_user;
 use crate::{bridge, Config};
 
@@ -51,7 +51,7 @@ impl EventHandler for Handler {
         )
         .await;
         let mut bridge_message = bridge::pojo::BridgeSendMessageForm {
-            bridge_user_id: bridge_user.id,
+            sender_id: bridge_user.id,
             avatar_url: None,
             bridge_config: bridge_config.clone(),
             message_chain: Vec::new(),
@@ -64,15 +64,6 @@ impl EventHandler for Handler {
             bridge_message.avatar_url =
                 Some(url.replace(".webp?size=1024", ".png?size=40").to_string());
         }
-        // 记录消息id
-        // BridgeMessageHistory::insert(
-        //     &bridge_message.id,
-        //     Platform::Discord,
-        //     msg.id.0.to_string().as_str(),
-        // )
-        // .await
-        // .unwrap();
-
         let result = crate::utils::parser_message(&msg.content).await;
         for ast in result {
             match ast {

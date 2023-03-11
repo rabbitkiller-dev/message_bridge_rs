@@ -41,7 +41,7 @@ async fn recv_group_msg(
     let qq_message_id = GroupMessageId::new(group_id, msg.seqs.get(0).unwrap().clone());
     // 组装向桥发送的消息体表单
     let mut bridge_message = bridge::pojo::BridgeSendMessageForm {
-        bridge_user_id: bridge_user.id,
+        sender_id: bridge_user.id,
         avatar_url: Some(format!("https://q1.qlogo.cn/g?b=qq&nk={sender_id}&s=100")),
         bridge_config: config.clone(),
         message_chain: Vec::new(),
@@ -107,9 +107,14 @@ async fn recv_group_msg(
                     }
                     let result = result.unwrap();
                     if let Some(reply) = result {
+                        // 这条是一个笨逻辑, qq的回复会自动at, 这里把他去掉
+                        bridge_message.message_chain.pop();
+                        bridge_message.message_chain.pop();
+                        // 填入回复的消息
                         bridge_message.message_chain.push(MessageContent::Reply {
                             id: Some(reply.id.clone()),
                         });
+                        continue;
                     }
                     bridge_message.message_chain.push(MessageContent::Err {
                         message: "回复一条QQ消息, 但是同步回复消息失败".to_string(),

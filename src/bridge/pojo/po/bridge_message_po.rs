@@ -9,6 +9,14 @@ pub struct BridgeMessagePO {
      */
     pub id: String,
     /**
+     * 桥用户
+     */
+    pub sender_id: String,
+    /**
+     * 头像链接
+     */
+    pub avatar_url: Option<String>,
+    /**
      * 关联桥消息的列表
      */
     pub refs: Vec<BridgeMessageRefPO>,

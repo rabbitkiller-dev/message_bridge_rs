@@ -16,6 +16,7 @@ mod bridge_tg;
 // mod cmd_adapter;
 mod config;
 mod logger;
+mod test_dc;
 mod utils;
 
 pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;

@@ -40,6 +40,8 @@ impl BridgeMessageManager {
         let mut bridge_message = bridge::pojo::BridgeMessagePO {
             id: id.clone(),
             refs: vec![],
+            sender_id: form.sender_id,
+            avatar_url: form.avatar_url,
             message_chain: form.message_chain,
         };
         bridge_message.refs.push(form.origin_message);

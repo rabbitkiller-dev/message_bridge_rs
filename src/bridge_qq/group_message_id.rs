@@ -14,9 +14,6 @@ impl GroupMessageId {
 
     pub fn from_bridge_message_id(bridge_message_id: &str) -> GroupMessageId {
         let splits: Vec<&str> = bridge_message_id.split('|').collect();
-        println!("{:?}", splits);
-        println!("{:?}", splits[1]);
-        println!("{:?}", splits[2]);
         let group_id: u64 = splits[1].parse::<u64>().unwrap();
         let seqs: i32 = splits[2].parse::<i32>().unwrap();
         GroupMessageId { group_id, seqs }
