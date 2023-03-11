@@ -127,10 +127,45 @@ pub type MessageChain = Vec<MessageContent>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum MessageContent {
-    Plain { text: String },
-    At { id: String },
+    /**
+     * 回复
+     */
+    Reply {
+        /**
+         * 想要回复的桥消息id
+         */
+        id: Option<String>,
+    },
+    /**
+     * 普通文本
+     */
+    Plain {
+        text: String,
+    },
+    /**
+     * 提及某人
+     */
+    At {
+        /**
+         * 目标用户的桥用户id
+         */
+        id: String,
+    },
+    /**
+     * 提及所有人
+     */
     AtAll,
+    /**
+     * 图片
+     */
     Image(Image),
+    /**
+     * 发生了一些错误
+     */
+    Err {
+        // 错误信息
+        message: String,
+    },
     Othen,
 }
 

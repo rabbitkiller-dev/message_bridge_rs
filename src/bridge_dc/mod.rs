@@ -57,6 +57,17 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                         };
                     }
                 },
+                bridge::MessageContent::Reply { id } => {
+                    if let Some(id) = id {
+                        let reply_message =
+                            bridge::BRIDGE_MESSAGE_MANAGER.lock().await.get(id).await;
+                        if let Some(reply_message) = reply_message {
+                            content.push("> {回复消息}\n".to_string());
+                        } else {
+                            content.push("> {回复消息}\n".to_string());
+                        }
+                    }
+                }
                 bridge::MessageContent::At { id } => {
                     let bridge_user = bridge::user_manager::bridge_user_manager
                         .lock()

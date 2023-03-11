@@ -172,7 +172,6 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
             let group_message_id = GroupMessageId {
                 group_id: message.bridge_config.qqGroup,
                 seqs,
-                time: receipt.time,
             };
             bridge::BRIDGE_MESSAGE_MANAGER
                 .lock()

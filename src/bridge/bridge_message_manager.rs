@@ -1,9 +1,10 @@
 use lazy_static::lazy_static;
+use proc_qq::re_exports::ricq_core::pb::sig_act::Platform;
 use std::fs;
 use tokio::sync::Mutex;
 
 use crate::bridge;
-
+use bridge::pojo::{BridgeMessagePO, BridgeMessageRefMessageForm};
 pub struct BridgeMessageManager {
     messages: Vec<bridge::pojo::BridgeMessagePO>,
 }
@@ -18,6 +19,18 @@ impl BridgeMessageManager {
             };
         }
         BridgeMessageManager { messages: vec![] }
+    }
+
+    /**
+     * 查询指定消息
+     */
+    pub async fn get(&self, id: &str) -> Option<BridgeMessagePO> {
+        for message in &self.messages {
+            if id.eq(&message.id) {
+                return Some(message.clone());
+            }
+        }
+        None
     }
     /**
      * 保存消息
@@ -36,33 +49,9 @@ impl BridgeMessageManager {
     }
 
     /**
-     * 保存并且关联消息
-     */
-    pub async fn save_and_ref(
-        &mut self,
-        form: bridge::pojo::BridgeMessageSaveAndRefForm,
-    ) -> String {
-        let id = uuid::Uuid::new_v4().to_string();
-        let mut bridge_message = bridge::pojo::BridgeMessagePO {
-            id: id.clone(),
-            refs: vec![],
-            message_chain: vec![],
-        };
-        bridge_message.refs.push(bridge::pojo::BridgeMessageRefPO {
-            platform: form.platform,
-            origin_id: form.origin_id,
-        });
-        self.messages.push(bridge_message);
-        self.serialize();
-        id
-    }
-    /**
      * 关联消息桥消息
      */
-    pub async fn ref_bridge_message(
-        &mut self,
-        form: bridge::pojo::BridgeMessageRefMessageForm,
-    ) -> bool {
+    pub async fn ref_bridge_message(&mut self, form: BridgeMessageRefMessageForm) -> bool {
         let message = self
             .messages
             .iter_mut()
@@ -94,6 +83,35 @@ impl BridgeMessageManager {
         // self.messages.push(bridge_message);
         // self.serialize();
         // id
+    }
+
+    /**
+     * 根据关联id和平台查询桥消息
+     */
+    pub async fn find_by_ref_and_platform(
+        &self,
+        origin_id: &str,
+        platform: &str,
+    ) -> Result<Option<BridgeMessagePO>, String> {
+        let refs: Vec<&BridgeMessagePO> = self
+            .messages
+            .iter()
+            .filter(|message| {
+                message
+                    .refs
+                    .iter()
+                    .find(|refs| refs.origin_id.eq(origin_id) && refs.platform.eq(platform))
+                    .is_some()
+            })
+            .collect();
+        if refs.len() > 1 {
+            return Err("关联的消息查询到了多条".to_string());
+        }
+        if refs.len() == 1 {
+            let po = refs.get(0).unwrap().clone().clone();
+            return Ok(Some(po));
+        }
+        Ok(None)
     }
 
     fn serialize(&self) {

@@ -244,12 +244,14 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
         let mut images = vec![];
         for x in &message.message_chain {
             match x {
+                MessageContent::Reply { .. } => {}
                 MessageContent::Plain { text } => builder.push(text.as_str()),
                 MessageContent::At { .. } => {
                     // todo
                 }
                 MessageContent::AtAll => {}
                 MessageContent::Image(image) => images.push(image),
+                MessageContent::Err { .. } => {}
                 MessageContent::Othen => {}
             }
         }
