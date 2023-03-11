@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::future::Future;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -10,6 +9,7 @@ use teleser::re_exports::async_trait::async_trait;
 use teleser::re_exports::grammers_client::types::{Chat, Media, Message};
 use teleser::re_exports::grammers_client::{Client, InitParams, InputMessage};
 use teleser::re_exports::grammers_session::PackedChat;
+use teleser::re_exports::grammers_tl_types::enums::MessageEntity;
 use teleser::{Auth, ClientBuilder, FileSessionStore, NewMessageProcess, Process, StaticBotToken};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
@@ -68,6 +68,9 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
         .with_init_params(Some({
             let mut params = InitParams::default();
             params.device_model = "message_bridge_rs".to_owned();
+            if let Ok(url) = std::env::var("BRIDGE_TG_PROXY") {
+                params.proxy_url = Some(url);
+            }
             params
         }))
         .with_modules(Arc::new(vec![module]))
@@ -137,7 +140,7 @@ impl NewMessageProcess for TgNewMessage {
                         };
                         // 下载图片
                         let media = event.media();
-                        if let Some(Media::Photo(photo)) = &media {
+                        if let Some(Media::Photo(_)) = &media {
                             // download media 存在一定时间以后不能使用的BUG, 已经使用临时仓库解决
                             // see: https://github.com/Lonami/grammers/issues/166
                             match download_media(client, &media.unwrap()).await {
@@ -150,9 +153,54 @@ impl NewMessageProcess for TgNewMessage {
                             }
                         }
                         if !event.text().is_empty() {
-                            bridge_message.message_chain.push(Plain {
-                                text: event.text().to_owned(),
-                            });
+                            if let Some(entities) = event.fmt_entities() {
+                                let text = event.text();
+                                let mut offset: usize = 0;
+                                for x in entities {
+                                    match x {
+                                        MessageEntity::Mention(m) => {
+                                            // todo 用数据库和更新用户名和id的对应关系, 因为机器人api不允许使用用户名转id的功能
+                                            bridge_message.message_chain.push(Plain {
+                                                text: text[offset..(m.offset) as usize].to_string(),
+                                            });
+                                            offset = (m.offset + m.length) as usize;
+                                            // todo @
+                                            // bridge_message.message_chain.push(At {
+                                            // });
+                                            bridge_message.message_chain.push(Plain {
+                                                text: text[(m.offset as usize)
+                                                    ..((m.offset + m.length) as usize)]
+                                                    .to_string(),
+                                            });
+                                        }
+                                        MessageEntity::MentionName(m) => {
+                                            if offset < m.offset as usize {
+                                                bridge_message.message_chain.push(Plain {
+                                                    text: text[offset..(m.offset as usize)]
+                                                        .to_string(),
+                                                });
+                                                offset = (m.offset + m.length) as usize;
+                                                // todo @
+                                                // bridge_message.message_chain.push(At {
+                                                // });
+                                                bridge_message.message_chain.push(Plain {
+                                                    text: format!(
+                                                        "@{}",
+                                                        text[(m.offset as usize)
+                                                            ..((m.offset + m.length) as usize)]
+                                                            .to_string()
+                                                    ),
+                                                });
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            } else {
+                                bridge_message.message_chain.push(Plain {
+                                    text: event.text().to_owned(),
+                                });
+                            }
                         }
                         if !bridge_message.message_chain.is_empty() {
                             self.bridge.send(bridge_message);
@@ -191,7 +239,9 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
         for x in &message.message_chain {
             match x {
                 MessageContent::Plain { text } => builder.push(text.as_str()),
-                MessageContent::At { .. } => {}
+                MessageContent::At { .. } => {
+                    // todo
+                }
                 MessageContent::AtAll => {}
                 MessageContent::Image(image) => images.push(image),
                 MessageContent::Othen => {}
@@ -234,7 +284,11 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
                                                 let _ = inner_client
                                                     .send_message(
                                                         chat.clone(),
-                                                        InputMessage::default().photo(img),
+                                                        InputMessage::text(format!(
+                                                            "{}:",
+                                                            message.user.name,
+                                                        ))
+                                                        .photo(img),
                                                     )
                                                     .await;
                                             }
@@ -251,7 +305,9 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
                 if !builder.is_empty() {
                     let send = builder.join("");
                     if !send.is_empty() {
-                        let _ = inner_client.send_message(chat.clone(), send).await;
+                        let _ = inner_client
+                            .send_message(chat.clone(), format!("{} : {}", message.user.name, send))
+                            .await;
                     }
                 }
             }
