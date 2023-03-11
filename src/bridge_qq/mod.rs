@@ -191,6 +191,22 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
  */
 pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
     tracing::info!("[QQ] 初始化QQ桥");
+    // 确认配置无误
+    let auth = match config.qq_config.get_auth() {
+        Ok(a) => a,
+        Err(e) => {
+            tracing::error!(?e);
+            return;
+        }
+    };
+    let version = match config.qq_config.get_version() {
+        Ok(a) => a,
+        Err(e) => {
+            tracing::error!(?e);
+            return;
+        }
+    };
+
     let handler = DefaultHandler {
         config: config.clone(),
         bridge: bridge.clone(),
@@ -209,20 +225,27 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
         handles: vec![on_message],
     };
 
+    let mut show_qr = ShowQR::OpenBySystem;
+    if let Authentication::QRCode = auth {
+        if config.print_qr.unwrap_or_else(|| false) {
+            show_qr = ShowQR::PrintToConsole;
+        }
+    }
+
     let client = ClientBuilder::new()
         .session_store(FileSessionStore::boxed("session.token"))
-        .authentication(Authentication::QRCode)
-        .show_rq(ShowQR::OpenBySystem)
+        .authentication(auth)
+        .show_rq(show_qr)
         .device(DeviceSource::JsonFile("device.json".to_owned()))
-        .version(&ANDROID_WATCH)
+        .version(version)
         .modules(vec![module])
         .build()
         .await
         .unwrap();
     let arc = Arc::new(client);
     tokio::select! {
-        _ = proc_qq::run_client(arc.clone()) => {
-            tracing::warn!("[QQ] QQ客户端退出");
+        Err(e) = proc_qq::run_client(arc.clone()) => {
+            tracing::error!(err = ?e, "[QQ] QQ客户端退出");
         },
         _ = sync_message(bridge.clone(), arc.rq_client.clone()) => {
             tracing::warn!("[QQ] QQ桥关闭");
