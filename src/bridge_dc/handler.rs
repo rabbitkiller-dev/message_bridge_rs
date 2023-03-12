@@ -70,7 +70,6 @@ impl EventHandler for Handler {
                 .message_chain
                 .push(to_reply_bridge_message(reply).await);
         }
-
         let result = crate::utils::parser_message(&msg.content).await;
         for ast in result {
             match ast {
