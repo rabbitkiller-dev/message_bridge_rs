@@ -125,17 +125,17 @@ impl NewMessageProcess for TgNewMessage {
             if let Chat::Group(group) = event.chat() {
                 if let Some(config) = self.find_cfg_by_group(group.id()) {
                     if let Some(Chat::User(user)) = event.sender() {
-                        let mut bridge_message = BridgeMessage {
-                            id: uuid::Uuid::new_v4().to_string(),
+                        // 为发送者申请桥用户
+                        let bridge_user = apply_bridge_user(user.id(), user.full_name()).await;
+                        // 组装向桥发送的消息体表单
+                        let mut bridge_message = bridge::pojo::BridgeSendMessageForm {
+                            sender_id: bridge_user.id,
+                            avatar_url: None,
                             bridge_config: config.clone(),
                             message_chain: Vec::new(),
-                            user: bridge::User {
-                                name: format!("[TG] {}({})", user.full_name(), user.id()),
-                                avatar_url: None,
-                                unique_id: user.id() as u64,
-                                platform: BridgeClientPlatform::Telegram,
-                                display_id: user.id() as u64,
-                                platform_id: group.id() as u64,
+                            origin_message: bridge::pojo::BridgeMessageRefPO {
+                                origin_id: "".to_string(),
+                                platform: "TG".to_string(),
                             },
                         };
                         // 下载图片
@@ -203,7 +203,7 @@ impl NewMessageProcess for TgNewMessage {
                             }
                         }
                         if !bridge_message.message_chain.is_empty() {
-                            self.bridge.send(bridge_message);
+                            self.bridge.send_message(bridge_message).await;
                         }
                     }
                 }
@@ -228,9 +228,15 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
             }
         };
         // 配置发送者头像
-        if let Some(avatar_url) = &message.user.avatar_url {
+        if let Some(avatar_url) = &message.avatar_url {
             debug!("用户头像: {:?}", avatar_url);
         }
+        let bridge_user = bridge::user_manager::bridge_user_manager
+            .lock()
+            .await
+            .get(&message.sender_id)
+            .await
+            .unwrap();
         // telegram 每条消息只能带一个附件或一个图片
         // 同时可以发一组图片消息，但是只有第一个图片消息可以带文字，文字会显示到一组消息的最下方
         // todo 发送图片消息和 @
@@ -238,12 +244,14 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
         let mut images = vec![];
         for x in &message.message_chain {
             match x {
+                MessageContent::Reply { .. } => {}
                 MessageContent::Plain { text } => builder.push(text.as_str()),
                 MessageContent::At { .. } => {
                     // todo
                 }
                 MessageContent::AtAll => {}
                 MessageContent::Image(image) => images.push(image),
+                MessageContent::Err { .. } => {}
                 MessageContent::Othen => {}
             }
         }
@@ -286,7 +294,7 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
                                                         chat.clone(),
                                                         InputMessage::text(format!(
                                                             "{}:",
-                                                            message.user.name,
+                                                            bridge_user.to_string(),
                                                         ))
                                                         .photo(img),
                                                     )
@@ -306,7 +314,10 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
                     let send = builder.join("");
                     if !send.is_empty() {
                         let _ = inner_client
-                            .send_message(chat.clone(), format!("{} : {}", message.user.name, send))
+                            .send_message(
+                                chat.clone(),
+                                format!("{} : {}", bridge_user.to_string(), send),
+                            )
                             .await;
                     }
                 }
@@ -322,4 +333,20 @@ async fn download_media(c: &mut teleser::InnerClient, media: &Media) -> Result<V
         data.write(chunk.as_slice()).await?;
     }
     Ok(data)
+}
+
+/**
+ * 申请桥用户
+ */
+async fn apply_bridge_user(id: i64, name: String) -> bridge::user::BridgeUser {
+    let bridge_user = bridge::user_manager::bridge_user_manager
+        .lock()
+        .await
+        .likeAndSave(bridge::pojo::BridgeUserSaveForm {
+            origin_id: id.to_string(),
+            platform: "TG".to_string(),
+            display_text: format!("{}({})", name, id),
+        })
+        .await;
+    bridge_user.unwrap()
 }

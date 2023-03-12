@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use proc_qq::re_exports::ricq::msg::MessageChain;
 use proc_qq::re_exports::ricq::version::ANDROID_WATCH;
+use proc_qq::re_exports::ricq::version::MACOS;
+use proc_qq::re_exports::ricq_core;
 use proc_qq::re_exports::ricq_core::msg::elem;
 use proc_qq::FileSessionStore;
 use proc_qq::{
@@ -12,7 +14,10 @@ use tracing::{debug, error};
 use crate::bridge_qq::handler::DefaultHandler;
 use crate::{bridge, Config};
 
+mod group_message_id;
 mod handler;
+
+use group_message_id::GroupMessageId;
 
 type RqClient = proc_qq::re_exports::ricq::Client;
 
@@ -53,10 +58,7 @@ async fn proc_at(target: &str, send_content: &mut MessageChain) {
         }
     }
     // 没有关联账号用标准格式发送消息
-    send_content.push(elem::Text::new(format!(
-        "@[{}] {}",
-        bridge_user.platform, bridge_user.display_text
-    )));
+    send_content.push(elem::Text::new(format!("@{}", bridge_user.to_string())));
 }
 
 /**
@@ -75,9 +77,37 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
         };
 
         let mut send_content = MessageChain::default();
+
+        /**
+         * 回复功能
+         */
+        // let mut reply_content = MessageChain::default();
+        // reply_content.push(elem::Text::new("test custom reply3".to_string()));
+        // let reply = elem::Reply {
+        //     reply_seq: 6539,
+        //     sender: 243249439,
+        //     time: 1678267174,
+        //     elements: reply_content,
+        // };
+        // send_content.with_reply(reply);
+        // send_content.0.push(ricq_core::pb::msg::elem::Elem::SrcMsg(
+        //     ricq_core::pb::msg::SourceMsg {
+        //         orig_seqs: vec![6539],
+        //         sender_uin: Some(243249439),
+        //         time: Some(1678267174),
+        //         flag: Some(1),
+        //         elems: reply_content.into(),
+        //         rich_msg: Some(vec![]),
+        //         pb_reserve: Some(vec![]),
+        //         src_msg: Some(vec![]),
+        //         troop_name: Some(vec![]),
+        //         ..Default::default()
+        //     },
+        // ));
+
         // 配置发送者头像
-        if let Some(avatar_url) = &message.user.avatar_url {
-            debug!("用户头像: {:?}", message.user.avatar_url);
+        if let Some(avatar_url) = &message.avatar_url {
+            debug!("用户头像: {:?}", message.avatar_url);
             let image =
                 upload_group_image(message.bridge_config.qqGroup, avatar_url, rq_client.clone())
                     .await;
@@ -85,8 +115,16 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
                 send_content.push(image);
             }
         }
+        let bridge_user = bridge::user_manager::bridge_user_manager
+            .lock()
+            .await
+            .get(&message.sender_id)
+            .await;
         // 配置发送者用户名
-        send_content.push(elem::Text::new(format!("{}\n", message.user.name)));
+        send_content.push(elem::Text::new(format!(
+            "{}\n",
+            bridge_user.unwrap().to_string()
+        )));
 
         for chain in &message.message_chain {
             match chain {
@@ -98,7 +136,7 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
                 bridge::MessageContent::At { id } => proc_at(id, &mut send_content).await,
                 // 桥图片 转 qq图片
                 bridge::MessageContent::Image(image) => {
-                    debug!("桥消息-图片: {:?}", message.user.avatar_url);
+                    debug!("桥消息-图片: {:?}", image);
                     match image.clone().load_data().await {
                         Ok(data) => {
                             match rq_client
@@ -120,11 +158,31 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
         debug!("[QQ] 同步消息");
         debug!("{:?}", send_content);
         debug!("{:?}", message.bridge_config.qqGroup as i64);
+
+        // seqs: [6539], rands: [1442369605], time: 1678267174
+        // rq_client.send_message(routing_head, message_chain, ptt);
+
         let result = rq_client
             .send_group_message(message.bridge_config.qqGroup as i64, send_content)
             .await
             .ok();
-        debug!("{:?}", result);
+        if let Some(receipt) = result {
+            // 发送成功后, 将平台消息和桥消息进行关联, 为以后进行回复功能
+            let seqs = receipt.seqs.first().unwrap().clone();
+            let group_message_id = GroupMessageId {
+                group_id: message.bridge_config.qqGroup,
+                seqs,
+            };
+            bridge::BRIDGE_MESSAGE_MANAGER
+                .lock()
+                .await
+                .ref_bridge_message(bridge::pojo::BridgeMessageRefMessageForm {
+                    bridge_message_id: message.id,
+                    platform: "QQ".to_string(),
+                    origin_id: group_message_id.to_string(),
+                })
+                .await;
+        }
     }
 }
 

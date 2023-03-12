@@ -13,9 +13,7 @@ pub async fn download_and_cache(url: &str) -> Result<String, reqwest::Error> {
     let content_type = stream.headers().get(reqwest::header::CONTENT_TYPE);
 
     let ext = match content_type {
-        Some(value) => {
-            get_mine_type_ext(value.to_str().unwrap())
-        }
+        Some(value) => get_mine_type_ext(value.to_str().unwrap()),
         None => String::new(),
     };
     let file_name = format!("{}{}", url_md5, ext);
@@ -153,9 +151,9 @@ fn test4() {
         Some(exts) => {
             println!("Some: {:?}", exts);
             println!("Some: {}", exts.first().unwrap().to_string());
-        },
+        }
         None => {
             println!("None: {}", mine.subtype().to_string());
-        },
+        }
     };
 }

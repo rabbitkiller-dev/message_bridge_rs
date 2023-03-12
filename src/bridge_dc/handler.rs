@@ -7,7 +7,7 @@ use serenity::model::Timestamp;
 use serenity::prelude::*;
 use tracing::{debug, error, info, instrument, trace};
 
-use crate::bridge::{BridgeClientPlatform, Image};
+use crate::bridge::Image;
 use crate::bridge_dc::apply_bridge_user;
 use crate::{bridge, Config};
 
@@ -44,41 +44,26 @@ impl EventHandler for Handler {
             // 该消息的频道没有配置桥, 忽略这个消息
             None => return,
         };
-        let _bridge_user = apply_bridge_user(
+        let bridge_user = apply_bridge_user(
             msg.author.id.0,
             msg.author.name.as_str(),
             msg.author.discriminator,
         )
         .await;
-        let mut user = bridge::User {
-            name: format!("[DC] {}#{}", msg.author.name, msg.author.discriminator),
+        let mut bridge_message = bridge::pojo::BridgeSendMessageForm {
+            sender_id: bridge_user.id,
             avatar_url: None,
-            platform_id: 0,
-            unique_id: msg.author.id.0,
-            platform: BridgeClientPlatform::Discord,
-            display_id: msg.author.discriminator as u64,
-        };
-        if let Some(url) = msg.author.avatar_url() {
-            user.avatar_url = Some(url.replace(".webp?size=1024", ".png?size=40").to_string());
-        }
-        if let Some(gid) = msg.guild_id {
-            user.platform_id = gid.0
-        }
-        let mut bridge_message = bridge::BridgeMessage {
-            id: uuid::Uuid::new_v4().to_string(),
             bridge_config: bridge_config.clone(),
             message_chain: Vec::new(),
-            user,
+            origin_message: bridge::pojo::BridgeMessageRefPO {
+                origin_id: msg.id.0.to_string(),
+                platform: "DC".to_string(),
+            },
         };
-        // 记录消息id
-        // BridgeMessageHistory::insert(
-        //     &bridge_message.id,
-        //     Platform::Discord,
-        //     msg.id.0.to_string().as_str(),
-        // )
-        // .await
-        // .unwrap();
-
+        if let Some(url) = msg.author.avatar_url() {
+            bridge_message.avatar_url =
+                Some(url.replace(".webp?size=1024", ".png?size=40").to_string());
+        }
         let result = crate::utils::parser_message(&msg.content).await;
         for ast in result {
             match ast {
@@ -146,7 +131,7 @@ impl EventHandler for Handler {
         }
         debug!("dc 桥的消息链：{:#?}", bridge_message.message_chain);
 
-        self.bridge.send(bridge_message);
+        self.bridge.send_message(bridge_message).await;
         if msg.content == "!hello" {
             // The create message builder allows you to easily create embeds and messages
             // using a builder syntax.

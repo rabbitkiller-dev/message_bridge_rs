@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use proc_qq::re_exports::async_trait::async_trait;
+use proc_qq::re_exports::ricq_core;
 use proc_qq::re_exports::ricq_core::msg::elem;
 use proc_qq::{
     FriendMessageEvent, GroupMessageEvent, GroupTempMessageEvent, LoginEventProcess,
@@ -11,9 +12,11 @@ use proc_qq::{
 use tracing::{debug, error, info};
 
 use crate::bridge::{BridgeClient, BridgeClientPlatform, BridgeMessage, Image, MessageContent};
+use crate::bridge_qq::group_message_id;
 use crate::config::BridgeConfig;
 use crate::{bridge, elo, utils, Config};
 
+use super::group_message_id::GroupMessageId;
 use super::{apply_bridge_user, RqClient};
 
 const OKK: anyhow::Result<bool> = Ok(true);
@@ -32,19 +35,19 @@ async fn recv_group_msg(
         "[{}]{group_id}-[{sender_nickname}]{sender_id} '{}'",
         msg.group_name, msg.elements
     );
-
-    let _bridge_user = apply_bridge_user(sender_id, sender_nickname.as_str()).await;
-    let mut bridge_message = BridgeMessage {
-        id: uuid::Uuid::new_v4().to_string(),
+    // 为发送者申请桥用户
+    let bridge_user = apply_bridge_user(sender_id, sender_nickname.as_str()).await;
+    // 并接该群消息的id
+    let qq_message_id = GroupMessageId::new(group_id, msg.seqs.get(0).unwrap().clone());
+    // 组装向桥发送的消息体表单
+    let mut bridge_message = bridge::pojo::BridgeSendMessageForm {
+        sender_id: bridge_user.id,
+        avatar_url: Some(format!("https://q1.qlogo.cn/g?b=qq&nk={sender_id}&s=100")),
         bridge_config: config.clone(),
         message_chain: Vec::new(),
-        user: bridge::User {
-            name: format!("[QQ] {}({})", sender_nickname, sender_id),
-            avatar_url: Some(format!("https://q1.qlogo.cn/g?b=qq&nk={sender_id}&s=100")),
-            unique_id: sender_id,
-            platform: BridgeClientPlatform::QQ,
-            display_id: sender_id,
-            platform_id: group_id,
+        origin_message: bridge::pojo::BridgeMessageRefPO {
+            origin_id: qq_message_id.to_string(),
+            platform: "QQ".to_string(),
         },
     };
 
@@ -87,7 +90,38 @@ async fn recv_group_msg(
                 ));
             }
             elem::RQElem::Other(o) => {
-                debug!("未解读 elem: {:?}", o);
+                if let ricq_core::pb::msg::elem::Elem::SrcMsg(source_msg) = *o {
+                    debug!("疑似回复消息 id: {:?}", source_msg);
+                    let seqs = source_msg.orig_seqs.first().unwrap().clone();
+                    let group_message_id = GroupMessageId::new(source_msg.to_uin() as u64, seqs);
+                    let result = bridge::BRIDGE_MESSAGE_MANAGER
+                        .lock()
+                        .await
+                        .find_by_ref_and_platform(group_message_id.to_string().as_str(), "QQ")
+                        .await;
+                    if let Err(err) = result {
+                        bridge_message
+                            .message_chain
+                            .push(MessageContent::Err { message: err });
+                        continue;
+                    }
+                    let result = result.unwrap();
+                    if let Some(reply) = result {
+                        // 这条是一个笨逻辑, qq的回复会自动at, 这里把他去掉
+                        bridge_message.message_chain.pop();
+                        bridge_message.message_chain.pop();
+                        // 填入回复的消息
+                        bridge_message.message_chain.push(MessageContent::Reply {
+                            id: Some(reply.id.clone()),
+                        });
+                        continue;
+                    }
+                    bridge_message.message_chain.push(MessageContent::Err {
+                        message: "回复一条QQ消息, 但是同步回复消息失败".to_string(),
+                    });
+                } else {
+                    debug!("未解读 elem: {:?}", o);
+                }
             }
             o => {
                 debug!("未处理 elem: {:?}", o);
@@ -95,9 +129,9 @@ async fn recv_group_msg(
                     text: "[未处理]".to_string(),
                 });
             }
-        } // match
-    } // for
-    bridge.send(bridge_message);
+        }
+    }
+    bridge.send_message(bridge_message).await;
     OKK
 }
 

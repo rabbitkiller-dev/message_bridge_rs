@@ -29,16 +29,14 @@ fn use_webhook_send_dc_message() {
             )
             .await
             .unwrap();
+            // webhook.kind
             webhook
                 .execute(&http, false, |w| {
-                    // MessageBuilder::new().push("heelo trere")
-                    // let url = url::Url::parse("https://cdn.discordapp.com/avatars/724827488588660837/71919445a77c9076e3915da81028a305.webp?size=1024").unwrap();
-                    // w.add_file(AttachmentType::Image(url))
-                    w.add_file(AttachmentType::Path(std::path::Path::new(
-                        "71919445a77c9076e3915da81028a305.webp",
-                    )));
-
-                    w.content("hello there").username("Webhook test")
+                    w.username("Webhook test").components(|c| {
+                        c.create_action_row(|row| {
+                            row.create_button(|b| b.custom_id("btn").label("测试"))
+                        })
+                    })
                 })
                 .await
                 .expect("Could not execute webhook.");
@@ -87,7 +85,7 @@ fn use_webhook_get_guild_user() {
         .block_on(async {
             let config = Config::new();
 
-            let token = &config.discordConfig.botToken;
+            let token = &config.discord_config.botToken;
 
             let http = Http::new(&token);
             let member = http
@@ -105,7 +103,7 @@ fn use_webhook_get_guild_user() {
 fn use_webhook_get_guild_all_user() {
     let config = Config::new();
 
-    let token = &config.discordConfig.botToken;
+    let token = &config.discord_config.botToken;
 
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
