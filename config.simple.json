@@ -1,4 +1,10 @@
 {
+  "qqConfig": {
+    "botId": # 机器人账号 #,
+    "password": # 机器人登录密码 16位MD5 #,
+    "version": # 登录协议 iPad MacOS QiDian AndroidPhone AndroidWatch #,
+    "auth": # 无token时的认证方式 qr(二维码) pwd(账号+密码) #
+  },
   "discordConfig": {
     "botId": # 机器人的id(u64) #,
     "botToken": # 机器人的token #
