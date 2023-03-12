@@ -226,16 +226,16 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
     //     .await
     //     .unwrap();
     // println!("webhook_id: {}", webhook.id);
-    webhook
-        .execute(&client.cache_and_http.http, false, |w| {
-            w.username("Webhook test").components(|c| {
-                c.create_action_row(|row| {
-                    row.create_button(|b| b.style(ButtonStyle::Link).url("https://discord.com/channels/724829522230378536/781347109676384297/1082716108953497681").label("跳转回复"))
-                })
-            })
-        })
-        .await
-        .expect("Could not execute webhook.");
+    // webhook
+    //     .execute(&client.cache_and_http.http, false, |w| {
+    //         w.username("Webhook test").components(|c| {
+    //             c.create_action_row(|row| {
+    //                 row.create_button(|b| b.style(ButtonStyle::Link).url("https://discord.com/channels/724829522230378536/781347109676384297/1082716108953497681").label("跳转回复"))
+    //             })
+    //         })
+    //     })
+    //     .await
+    //     .expect("Could not execute webhook.");
     let cache = client.cache_and_http.clone();
 
     tokio::select! {
