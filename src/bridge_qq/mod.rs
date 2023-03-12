@@ -13,6 +13,7 @@ use tracing::{debug, error};
 
 use crate::bridge_qq::handler::DefaultHandler;
 use crate::{bridge, Config};
+use bridge::pojo::BridgeMessagePO;
 
 mod group_message_id;
 mod handler;
@@ -78,33 +79,6 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
 
         let mut send_content = MessageChain::default();
 
-        /**
-         * 回复功能
-         */
-        // let mut reply_content = MessageChain::default();
-        // reply_content.push(elem::Text::new("test custom reply3".to_string()));
-        // let reply = elem::Reply {
-        //     reply_seq: 6539,
-        //     sender: 243249439,
-        //     time: 1678267174,
-        //     elements: reply_content,
-        // };
-        // send_content.with_reply(reply);
-        // send_content.0.push(ricq_core::pb::msg::elem::Elem::SrcMsg(
-        //     ricq_core::pb::msg::SourceMsg {
-        //         orig_seqs: vec![6539],
-        //         sender_uin: Some(243249439),
-        //         time: Some(1678267174),
-        //         flag: Some(1),
-        //         elems: reply_content.into(),
-        //         rich_msg: Some(vec![]),
-        //         pb_reserve: Some(vec![]),
-        //         src_msg: Some(vec![]),
-        //         troop_name: Some(vec![]),
-        //         ..Default::default()
-        //     },
-        // ));
-
         // 配置发送者头像
         if let Some(avatar_url) = &message.avatar_url {
             debug!("用户头像: {:?}", message.avatar_url);
@@ -128,6 +102,17 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
 
         for chain in &message.message_chain {
             match chain {
+                bridge::MessageContent::Reply { id } => {
+                    if let Some(id) = id {
+                        let reply_message =
+                            bridge::BRIDGE_MESSAGE_MANAGER.lock().await.get(id).await;
+                        if let Some(reply_message) = reply_message {
+                            to_reply_content(&mut send_content, reply_message, bot_id).await
+                        } else {
+                            send_content.push(elem::Text::new("> {回复消息}\n".to_string()));
+                        }
+                    }
+                }
                 // 桥文本 转 qq文本
                 bridge::MessageContent::Plain { text } => {
                     send_content.push(elem::Text::new(text.to_string()))
@@ -267,4 +252,80 @@ async fn apply_bridge_user(id: u64, name: &str) -> bridge::user::BridgeUser {
         })
         .await;
     bridge_user.unwrap()
+}
+
+/**
+ * 处理回复
+ */
+async fn to_reply_content(
+    message_chain: &mut MessageChain,
+    reply_message: BridgeMessagePO,
+    uni: i64,
+) {
+    let refs = reply_message
+        .refs
+        .iter()
+        .find(|refs| refs.platform.eq("QQ"));
+    let bridge_user = bridge::user_manager::bridge_user_manager
+        .lock()
+        .await
+        .get(&reply_message.sender_id)
+        .await
+        .unwrap();
+    if let Some(refs) = refs {
+        let group_message_id = GroupMessageId::from_bridge_message_id(&refs.origin_id);
+        let mut reply_content = MessageChain::default();
+        let sender: i64 = if bridge_user.platform == "QQ" {
+            bridge_user.origin_id.parse::<i64>().unwrap()
+        } else {
+            uni
+        };
+        for chain in reply_message.message_chain {
+            match chain {
+                bridge::MessageContent::Reply { .. } => {
+                    reply_content.push(elem::Text::new("[回复消息]".to_string()));
+                }
+                bridge::MessageContent::Plain { text } => {
+                    reply_content.push(elem::Text::new(text.to_string()))
+                }
+                bridge::MessageContent::At { id } => proc_at(&id, &mut reply_content).await,
+                bridge::MessageContent::Image(..) => {
+                    reply_content.push(elem::Text::new("[图片]".to_string()))
+                }
+                _ => {}
+            }
+        }
+        let reply = elem::Reply {
+            reply_seq: group_message_id.seqs,
+            sender,
+            time: 0,
+            elements: reply_content,
+        };
+        message_chain.with_reply(reply);
+    } else {
+        message_chain.push(elem::Text::new("{回复消息}".to_string()));
+    }
+    // let mut reply_content = MessageChain::default();
+    // reply_content.push(elem::Text::new("test custom reply3".to_string()));
+    // let reply = elem::Reply {
+    //     reply_seq: 6539,
+    //     sender: 243249439,
+    //     time: 1678267174,
+    //     elements: reply_content,
+    // };
+    // send_content.with_reply(reply);
+    // send_content.0.push(ricq_core::pb::msg::elem::Elem::SrcMsg(
+    //     ricq_core::pb::msg::SourceMsg {
+    //         orig_seqs: vec![6539],
+    //         sender_uin: Some(243249439),
+    //         time: Some(1678267174),
+    //         flag: Some(1),
+    //         elems: reply_content.into(),
+    //         rich_msg: Some(vec![]),
+    //         pb_reserve: Some(vec![]),
+    //         src_msg: Some(vec![]),
+    //         troop_name: Some(vec![]),
+    //         ..Default::default()
+    //     },
+    // ));
 }

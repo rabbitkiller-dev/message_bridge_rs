@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use serenity::async_trait;
 use serenity::model::channel::Message;
+use serenity::model::channel::MessageReference;
 use serenity::model::gateway::Ready;
 use serenity::model::Timestamp;
 use serenity::prelude::*;
@@ -64,6 +65,12 @@ impl EventHandler for Handler {
             bridge_message.avatar_url =
                 Some(url.replace(".webp?size=1024", ".png?size=40").to_string());
         }
+        if let Some(reply) = msg.message_reference {
+            bridge_message
+                .message_chain
+                .push(to_reply_bridge_message(reply).await);
+        }
+
         let result = crate::utils::parser_message(&msg.content).await;
         for ast in result {
             match ast {
@@ -196,5 +203,32 @@ impl EventHandler for Handler {
                 ),
             }
         }
+    }
+}
+
+/**
+ * DC的回复消息处理成桥的回复消息
+ */
+async fn to_reply_bridge_message(reply: MessageReference) -> bridge::MessageContent {
+    use bridge::MessageContent;
+    if let None = reply.message_id {
+        return MessageContent::Err {
+            message: "回复一条DC消息, 但是DC没有提供消息id, 同步回复消息失败".to_string(),
+        };
+    }
+    let message_id = reply.message_id.unwrap().0.to_string();
+    let result = bridge::BRIDGE_MESSAGE_MANAGER
+        .lock()
+        .await
+        .find_by_ref_and_platform(&message_id, "DC")
+        .await;
+    let result = result.unwrap();
+    if let Some(reply) = result {
+        return MessageContent::Reply {
+            id: Some(reply.id.clone()),
+        };
+    }
+    MessageContent::Err {
+        message: "回复一条DC消息, 但是同步回复消息失败".to_string(),
     }
 }
