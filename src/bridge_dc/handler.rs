@@ -216,7 +216,7 @@ async fn to_reply_bridge_message(reply: MessageReference) -> bridge::MessageCont
         };
     }
     let message_id = reply.message_id.unwrap().0.to_string();
-    let result = bridge::BRIDGE_MESSAGE_MANAGER
+    let result = bridge::manager::BRIDGE_MESSAGE_MANAGER
         .lock()
         .await
         .find_by_ref_and_platform(&message_id, "DC")

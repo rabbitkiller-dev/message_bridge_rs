@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
 use proc_qq::re_exports::ricq::msg::MessageChain;
-use proc_qq::re_exports::ricq::version::ANDROID_WATCH;
-use proc_qq::re_exports::ricq::version::MACOS;
-use proc_qq::re_exports::ricq_core;
 use proc_qq::re_exports::ricq_core::msg::elem;
 use proc_qq::FileSessionStore;
 use proc_qq::{
@@ -41,7 +38,7 @@ pub async fn upload_group_image(
 /// - `target` 被 at 用户
 /// - `send_content` 同步消息链
 async fn proc_at(target: &str, send_content: &mut MessageChain) {
-    let bridge_user = bridge::user_manager::bridge_user_manager
+    let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
         .lock()
         .await
         .get(target)
@@ -52,7 +49,7 @@ async fn proc_at(target: &str, send_content: &mut MessageChain) {
     }
     let bridge_user = bridge_user.unwrap();
     // 查看桥关联的本平台用户id
-    if let Some(ref_user) = bridge_user.findRefByPlatform("QQ").await {
+    if let Some(ref_user) = bridge_user.find_by_platform("QQ").await {
         if let Ok(origin_id) = ref_user.origin_id.parse::<i64>() {
             send_content.push(elem::At::new(origin_id));
             return;
@@ -89,7 +86,7 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
                 send_content.push(image);
             }
         }
-        let bridge_user = bridge::user_manager::bridge_user_manager
+        let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
             .lock()
             .await
             .get(&message.sender_id)
@@ -104,8 +101,11 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
             match chain {
                 bridge::MessageContent::Reply { id } => {
                     if let Some(id) = id {
-                        let reply_message =
-                            bridge::BRIDGE_MESSAGE_MANAGER.lock().await.get(id).await;
+                        let reply_message = bridge::manager::BRIDGE_MESSAGE_MANAGER
+                            .lock()
+                            .await
+                            .get(id)
+                            .await;
                         if let Some(reply_message) = reply_message {
                             to_reply_content(&mut send_content, reply_message, bot_id).await
                         } else {
@@ -158,7 +158,7 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
                 group_id: message.bridge_config.qqGroup,
                 seqs,
             };
-            bridge::BRIDGE_MESSAGE_MANAGER
+            bridge::manager::BRIDGE_MESSAGE_MANAGER
                 .lock()
                 .await
                 .ref_bridge_message(bridge::pojo::BridgeMessageRefMessageForm {
@@ -242,7 +242,7 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
  * 申请桥用户
  */
 async fn apply_bridge_user(id: u64, name: &str) -> bridge::user::BridgeUser {
-    let bridge_user = bridge::user_manager::bridge_user_manager
+    let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
         .lock()
         .await
         .likeAndSave(bridge::pojo::BridgeUserSaveForm {
@@ -266,7 +266,7 @@ async fn to_reply_content(
         .refs
         .iter()
         .find(|refs| refs.platform.eq("QQ"));
-    let bridge_user = bridge::user_manager::bridge_user_manager
+    let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
         .lock()
         .await
         .get(&reply_message.sender_id)

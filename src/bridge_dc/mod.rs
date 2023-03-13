@@ -66,8 +66,11 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                 },
                 bridge::MessageContent::Reply { id } => {
                     if let Some(id) = id {
-                        let reply_message =
-                            bridge::BRIDGE_MESSAGE_MANAGER.lock().await.get(id).await;
+                        let reply_message = bridge::manager::BRIDGE_MESSAGE_MANAGER
+                            .lock()
+                            .await
+                            .get(id)
+                            .await;
                         if let Some(reply_message) = reply_message {
                             let refs = reply_message
                                 .refs
@@ -83,7 +86,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                     }
                 }
                 bridge::MessageContent::At { id } => {
-                    let bridge_user = bridge::user_manager::bridge_user_manager
+                    let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
                         .lock()
                         .await
                         .get(id)
@@ -94,7 +97,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                     }
                     let bridge_user = bridge_user.unwrap();
                     // 查看桥关联的本平台用户id
-                    if let Some(ref_user) = bridge_user.findRefByPlatform("DC").await {
+                    if let Some(ref_user) = bridge_user.find_by_platform("DC").await {
                         content.push(format!("<@{}>", ref_user.origin_id));
                         continue;
                     }
@@ -127,7 +130,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
             };
         }
         debug!(?content, ?fils, "桥内消息链组装完成");
-        let bridge_user = bridge::user_manager::bridge_user_manager
+        let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
             .lock()
             .await
             .get(&message.sender_id)
@@ -174,7 +177,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
             Ok(result) => {
                 if let Some(msg) = result {
                     // 发送成功后, 将平台消息和桥消息进行关联, 为以后进行回复功能
-                    bridge::BRIDGE_MESSAGE_MANAGER
+                    bridge::manager::BRIDGE_MESSAGE_MANAGER
                         .lock()
                         .await
                         .ref_bridge_message(bridge::pojo::BridgeMessageRefMessageForm {
@@ -252,7 +255,7 @@ pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
  * 申请桥用户
  */
 pub async fn apply_bridge_user(id: u64, name: &str, discriminator: u16) -> BridgeUser {
-    let bridge_user = bridge::user_manager::bridge_user_manager
+    let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
         .lock()
         .await
         .likeAndSave(bridge::pojo::BridgeUserSaveForm {
@@ -282,8 +285,7 @@ pub async fn find_member_by_name(
 }
 
 pub async fn to_reply_content(reply_message: BridgeMessagePO) -> Vec<String> {
-    let mut content: Vec<String> = vec![];
-    let user = match bridge::user_manager::bridge_user_manager
+    let user = match bridge::manager::BRIDGE_USER_MANAGER
         .lock()
         .await
         .get(&reply_message.sender_id)
@@ -300,10 +302,10 @@ pub async fn to_reply_content(reply_message: BridgeMessagePO) -> Vec<String> {
     for chain in reply_message.message_chain {
         match chain {
             bridge::MessageContent::Plain { text } => content.push_str(&text),
-            bridge::MessageContent::Image(image) => content.push_str("[图片]"),
-            bridge::MessageContent::Reply { id } => content.push_str("[回复消息]"),
+            bridge::MessageContent::Image(..) => content.push_str("[图片]"),
+            bridge::MessageContent::Reply { .. } => content.push_str("[回复消息]"),
             bridge::MessageContent::At { id } => {
-                let bridge_user = bridge::user_manager::bridge_user_manager
+                let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
                     .lock()
                     .await
                     .get(&id)
@@ -314,7 +316,7 @@ pub async fn to_reply_content(reply_message: BridgeMessagePO) -> Vec<String> {
                 }
                 let bridge_user = bridge_user.unwrap();
                 // 查看桥关联的本平台用户id
-                if let Some(ref_user) = bridge_user.findRefByPlatform("DC").await {
+                if let Some(ref_user) = bridge_user.find_by_platform("DC").await {
                     content.push_str(format!("@{}", ref_user.to_string()).as_str());
                     continue;
                 }

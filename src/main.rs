@@ -7,8 +7,8 @@ use tracing::{info, Level};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod bridge;
-mod bridge_cmd;
-mod bridge_data;
+// mod bridge_cmd;
+// mod bridge_data;
 mod bridge_dc;
 mod bridge_log;
 mod bridge_qq;
@@ -16,7 +16,7 @@ mod bridge_tg;
 // mod cmd_adapter;
 mod config;
 mod logger;
-mod test_dc;
+// mod test_dc;
 mod utils;
 
 pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;

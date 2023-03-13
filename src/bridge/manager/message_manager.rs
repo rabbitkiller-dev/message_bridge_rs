@@ -1,5 +1,4 @@
 use lazy_static::lazy_static;
-use proc_qq::re_exports::ricq_core::pb::sig_act::Platform;
 use std::fs;
 use tokio::sync::Mutex;
 
