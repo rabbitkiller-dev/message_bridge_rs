@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
-use proc_qq::Authentication;
 use proc_qq::re_exports::ricq::version;
+use proc_qq::Authentication;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fs;
@@ -56,14 +56,18 @@ impl QQConfig {
                 let mut buf = [0; 16];
                 let mut x = 0;
                 for b in pwd.bytes() {
-                    if x > 15 {break}
+                    if x > 15 {
+                        break;
+                    }
                     buf[x] = b;
                     x += 1;
                 }
                 Ok(UinPasswordMd5(self.botId.unwrap(), buf))
             }
             "qr" => Ok(QRCode),
-            _ => Err(anyhow::anyhow!("[QQ] 登录方式目前仅支持：二维码(qr)、账号密码(pwd)")),
+            _ => Err(anyhow::anyhow!(
+                "[QQ] 登录方式目前仅支持：二维码(qr)、账号密码(pwd)"
+            )),
         } // match
     }
     /// 获取客户端协议

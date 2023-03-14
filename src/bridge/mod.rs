@@ -1,4 +1,3 @@
-use serenity::async_trait;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::ops::BitOr;
 use std::str::FromStr;
@@ -9,16 +8,15 @@ use serde::Deserialize;
 use serde::Serialize;
 use tokio::sync::broadcast;
 
+use crate::bridge;
 use crate::bridge::BridgeClientPlatform::*;
-use crate::{bridge, BridgeConfig};
 
-pub mod bridge_message_manager;
+pub mod bridge_message;
+pub mod manager;
 pub mod pojo;
 pub mod user;
-pub mod user_manager;
-pub mod user_ref_manager;
 
-pub use bridge_message_manager::*;
+pub use bridge_message::{BridgeMessage, Image, MessageChain, MessageContent};
 
 /// 解析枚举文本错误
 #[derive(Debug)]
@@ -109,99 +107,6 @@ mod ts_bridge_client_platform {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BridgeMessage {
-    pub id: String,
-    // 桥用户
-    pub sender_id: String,
-    // 头像链接
-    pub avatar_url: Option<String>,
-    pub bridge_config: BridgeConfig,
-    pub message_chain: MessageChain,
-}
-
-impl BridgeMessage {}
-
-pub type MessageChain = Vec<MessageContent>;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum MessageContent {
-    /**
-     * 回复
-     */
-    Reply {
-        /**
-         * 想要回复的桥消息id
-         */
-        id: Option<String>,
-    },
-    /**
-     * 普通文本
-     */
-    Plain {
-        text: String,
-    },
-    /**
-     * 提及某人
-     */
-    At {
-        /**
-         * 目标用户的桥用户id
-         */
-        id: String,
-    },
-    /**
-     * 提及所有人
-     */
-    AtAll,
-    /**
-     * 图片
-     */
-    Image(Image),
-    /**
-     * 发生了一些错误
-     */
-    Err {
-        // 错误信息
-        message: String,
-    },
-    Othen,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Image {
-    Url(String),
-    Path(String),
-    Buff(Vec<u8>),
-}
-
-impl Image {
-    pub(crate) async fn load_data(self) -> anyhow::Result<Vec<u8>> {
-        match self {
-            Image::Url(url) => Ok(reqwest::get(url).await?.bytes().await?.to_vec()),
-            Image::Path(path) => Ok(tokio::fs::read(path).await?),
-            Image::Buff(data) => Ok(data),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct User {
-    /// 全称
-    pub name: String,
-    /// 头像链接
-    pub avatar_url: Option<String>,
-    /// 系统id
-    pub unique_id: u64,
-    /// 显示id
-    pub display_id: u64,
-    /// 群组/伺服器id
-    pub platform_id: u64,
-    /// 客户端平台枚举
-    pub platform: BridgeClientPlatform,
-}
-
 pub struct BridgeService {
     pub clients: Vec<Arc<BridgeClient>>,
 }
@@ -249,7 +154,7 @@ impl BridgeClient {
      */
     pub async fn send_message(&self, message: bridge::pojo::BridgeSendMessageForm) {
         let bridge = self.bridge.lock().await;
-        let id = bridge::bridge_message_manager::BRIDGE_MESSAGE_MANAGER
+        let id = bridge::manager::BRIDGE_MESSAGE_MANAGER
             .lock()
             .await
             .save(message.clone())

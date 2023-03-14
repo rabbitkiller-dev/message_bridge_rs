@@ -11,8 +11,7 @@ use proc_qq::{
 };
 use tracing::{debug, error, info};
 
-use crate::bridge::{BridgeClient, BridgeClientPlatform, BridgeMessage, Image, MessageContent};
-use crate::bridge_qq::group_message_id;
+use crate::bridge::{BridgeClient, Image, MessageContent};
 use crate::config::BridgeConfig;
 use crate::{bridge, elo, utils, Config};
 
@@ -94,7 +93,7 @@ async fn recv_group_msg(
                     debug!("疑似回复消息 id: {:?}", source_msg);
                     let seqs = source_msg.orig_seqs.first().unwrap().clone();
                     let group_message_id = GroupMessageId::new(source_msg.to_uin() as u64, seqs);
-                    let result = bridge::BRIDGE_MESSAGE_MANAGER
+                    let result = bridge::manager::BRIDGE_MESSAGE_MANAGER
                         .lock()
                         .await
                         .find_by_ref_and_platform(group_message_id.to_string().as_str(), "QQ")

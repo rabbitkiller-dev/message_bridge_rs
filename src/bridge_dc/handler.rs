@@ -27,12 +27,7 @@ impl EventHandler for Handler {
         }
 
         // 收到桥配置的webhook消息, 不要继续以免消息循环
-        if self
-            .config
-            .bridges
-            .iter()
-            .any(|bridge| msg.author.id == bridge.discord.id)
-        {
+        if self.config.bridges.iter().any(|bridge| msg.author.id == bridge.discord.id) {
             return;
         }
         let bridge_config = match self
@@ -45,12 +40,7 @@ impl EventHandler for Handler {
             // 该消息的频道没有配置桥, 忽略这个消息
             None => return,
         };
-        let bridge_user = apply_bridge_user(
-            msg.author.id.0,
-            msg.author.name.as_str(),
-            msg.author.discriminator,
-        )
-        .await;
+        let bridge_user = apply_bridge_user(msg.author.id.0, msg.author.name.as_str(), msg.author.discriminator).await;
         let mut bridge_message = bridge::pojo::BridgeSendMessageForm {
             sender_id: bridge_user.id,
             avatar_url: None,
@@ -62,27 +52,20 @@ impl EventHandler for Handler {
             },
         };
         if let Some(url) = msg.author.avatar_url() {
-            bridge_message.avatar_url =
-                Some(url.replace(".webp?size=1024", ".png?size=40").to_string());
+            bridge_message.avatar_url = Some(url.replace(".webp?size=1024", ".png?size=40").to_string());
         }
         if let Some(reply) = msg.message_reference {
-            bridge_message
-                .message_chain
-                .push(to_reply_bridge_message(reply).await);
+            bridge_message.message_chain.push(to_reply_bridge_message(reply).await);
         }
         let result = crate::utils::parser_message(&msg.content).await;
         for ast in result {
             match ast {
                 crate::utils::MarkdownAst::Plain { text } => {
-                    bridge_message
-                        .message_chain
-                        .push(bridge::MessageContent::Plain { text });
+                    bridge_message.message_chain.push(bridge::MessageContent::Plain { text });
                 }
                 crate::utils::MarkdownAst::At { username } => {
                     trace!("用户'{}'收到@", username);
-                    bridge_message
-                        .message_chain
-                        .push(bridge::MessageContent::Plain { text: username });
+                    bridge_message.message_chain.push(bridge::MessageContent::Plain { text: username });
                     // bridge_message
                     //     .message_chain
                     //     .push(bridge::MessageContent::At {
@@ -92,39 +75,25 @@ impl EventHandler for Handler {
                 }
                 crate::utils::MarkdownAst::DiscordAtUser { id } => {
                     let id: u64 = id.parse::<u64>().unwrap();
-                    let member = ctx
-                        .http
-                        .get_member(msg.guild_id.unwrap().0, id)
-                        .await
-                        .unwrap();
-                    let bridge_user =
-                        apply_bridge_user(id, member.user.name.as_str(), member.user.discriminator)
-                            .await;
+                    let member = ctx.http.get_member(msg.guild_id.unwrap().0, id).await.unwrap();
+                    let bridge_user = apply_bridge_user(id, member.user.name.as_str(), member.user.discriminator).await;
                     // let member_name =
                     //     format!("[DC] {}#{}", member.user.name, member.user.discriminator);
                     // trace!("用户'{}'收到@", member_name);
-                    bridge_message
-                        .message_chain
-                        .push(bridge::MessageContent::At { id: bridge_user.id });
+                    bridge_message.message_chain.push(bridge::MessageContent::At { id: bridge_user.id });
                 }
                 crate::utils::MarkdownAst::DiscordAtEveryone {} => {
-                    bridge_message
-                        .message_chain
-                        .push(bridge::MessageContent::AtAll);
+                    bridge_message.message_chain.push(bridge::MessageContent::AtAll);
                 }
                 crate::utils::MarkdownAst::DiscordAtHere {} => {
-                    bridge_message
-                        .message_chain
-                        .push(bridge::MessageContent::AtAll);
+                    bridge_message.message_chain.push(bridge::MessageContent::AtAll);
                 }
                 crate::utils::MarkdownAst::DiscordEmoji { id, animated, .. } => {
                     let suffix = if animated { "gif" } else { "png" };
-                    bridge_message
-                        .message_chain
-                        .push(bridge::MessageContent::Image(Image::Url(format!(
-                            "https://cdn.discordapp.com/emojis/{}.{}",
-                            id, suffix
-                        ))));
+                    bridge_message.message_chain.push(bridge::MessageContent::Image(Image::Url(format!(
+                        "https://cdn.discordapp.com/emojis/{}.{}",
+                        id, suffix
+                    ))));
                 }
             }
         }
@@ -155,11 +124,7 @@ impl EventHandler for Handler {
                                     ("This is the first field", "This is a field body", true),
                                     ("This is the second field", "Both fields are inline", true),
                                 ])
-                                .field(
-                                    "This is the third field",
-                                    "This is not an inline field",
-                                    false,
-                                )
+                                .field("This is the third field", "This is not an inline field", false)
                                 .footer(|f| f.text("This is a footer"))
                                 // Add a timestamp for the current time
                                 // This also accepts a rfc3339 Timestamp
@@ -216,7 +181,7 @@ async fn to_reply_bridge_message(reply: MessageReference) -> bridge::MessageCont
         };
     }
     let message_id = reply.message_id.unwrap().0.to_string();
-    let result = bridge::BRIDGE_MESSAGE_MANAGER
+    let result = bridge::manager::BRIDGE_MESSAGE_MANAGER
         .lock()
         .await
         .find_by_ref_and_platform(&message_id, "DC")

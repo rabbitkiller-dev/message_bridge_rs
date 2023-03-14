@@ -17,7 +17,7 @@ use tracing::{debug, error, warn};
 
 use crate::bridge;
 use crate::bridge::MessageContent::Plain;
-use crate::bridge::{BridgeClient, BridgeClientPlatform, BridgeMessage, Image, MessageContent};
+use crate::bridge::{BridgeClient, Image, MessageContent};
 use crate::config::{BridgeConfig, Config};
 
 pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
@@ -231,7 +231,7 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, teleser_client: Arc
         if let Some(avatar_url) = &message.avatar_url {
             debug!("用户头像: {:?}", avatar_url);
         }
-        let bridge_user = bridge::user_manager::bridge_user_manager
+        let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
             .lock()
             .await
             .get(&message.sender_id)
@@ -339,7 +339,7 @@ async fn download_media(c: &mut teleser::InnerClient, media: &Media) -> Result<V
  * 申请桥用户
  */
 async fn apply_bridge_user(id: i64, name: String) -> bridge::user::BridgeUser {
-    let bridge_user = bridge::user_manager::bridge_user_manager
+    let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
         .lock()
         .await
         .likeAndSave(bridge::pojo::BridgeUserSaveForm {

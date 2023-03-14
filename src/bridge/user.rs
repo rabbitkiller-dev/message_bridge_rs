@@ -32,9 +32,9 @@ impl BridgeUser {
     /**
      * 查询该用户指定平台关联的用户
      */
-    pub async fn findRefByPlatform(&self, platform: &str) -> Option<BridgeUser> {
+    pub async fn find_by_platform(&self, platform: &str) -> Option<BridgeUser> {
         return if let Some(ref_id) = &self.ref_id {
-            bridge::user_manager::bridge_user_manager
+            bridge::manager::BRIDGE_USER_MANAGER
                 .lock()
                 .await
                 .findByRefAndPlatform(ref_id, platform)

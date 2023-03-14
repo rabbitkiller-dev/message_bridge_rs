@@ -100,5 +100,5 @@ lazy_static! {
     // };
     // static ref PAGE:u32 = mulit(18);
 
-    pub static ref bridge_user_manager: Mutex<BridgeUserManager> = Mutex::new(BridgeUserManager::new());
+    pub static ref BRIDGE_USER_MANAGER: Mutex<BridgeUserManager> = Mutex::new(BridgeUserManager::new());
 }
