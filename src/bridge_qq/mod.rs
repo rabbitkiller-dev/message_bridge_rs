@@ -3,9 +3,7 @@ use std::sync::Arc;
 use proc_qq::re_exports::ricq::msg::MessageChain;
 use proc_qq::re_exports::ricq_core::msg::elem;
 use proc_qq::FileSessionStore;
-use proc_qq::{
-    Authentication, ClientBuilder, DeviceSource, ModuleEventHandler, ModuleEventProcess, ShowQR,
-};
+use proc_qq::{Authentication, ClientBuilder, DeviceSource, ModuleEventHandler, ModuleEventProcess, ShowQR};
 use tracing::{debug, error};
 
 use crate::bridge_qq::handler::DefaultHandler;
@@ -19,17 +17,11 @@ use group_message_id::GroupMessageId;
 
 type RqClient = proc_qq::re_exports::ricq::Client;
 
-pub async fn upload_group_image(
-    group_id: u64,
-    url: &str,
-    rq_client: Arc<RqClient>,
-) -> anyhow::Result<elem::GroupImage> {
+pub async fn upload_group_image(group_id: u64, url: &str, rq_client: Arc<RqClient>) -> anyhow::Result<elem::GroupImage> {
     let client = reqwest::Client::new();
     let stream = client.get(url).send().await?;
     let img_bytes = stream.bytes().await.unwrap();
-    let group_image = rq_client
-        .upload_group_image(group_id as i64, img_bytes.to_vec())
-        .await?;
+    let group_image = rq_client.upload_group_image(group_id as i64, img_bytes.to_vec()).await?;
     Ok(group_image)
 }
 
@@ -38,11 +30,7 @@ pub async fn upload_group_image(
 /// - `target` 被 at 用户
 /// - `send_content` 同步消息链
 async fn proc_at(target: &str, send_content: &mut MessageChain) {
-    let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
-        .lock()
-        .await
-        .get(target)
-        .await;
+    let bridge_user = bridge::manager::BRIDGE_USER_MANAGER.lock().await.get(target).await;
     if let None = bridge_user {
         send_content.push(elem::Text::new(format!("@[UN] {}", target)));
         return;
@@ -79,33 +67,20 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
         // 配置发送者头像
         if let Some(avatar_url) = &message.avatar_url {
             debug!("用户头像: {:?}", message.avatar_url);
-            let image =
-                upload_group_image(message.bridge_config.qqGroup, avatar_url, rq_client.clone())
-                    .await;
+            let image = upload_group_image(message.bridge_config.qqGroup, avatar_url, rq_client.clone()).await;
             if let Result::Ok(image) = image {
                 send_content.push(image);
             }
         }
-        let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
-            .lock()
-            .await
-            .get(&message.sender_id)
-            .await;
+        let bridge_user = bridge::manager::BRIDGE_USER_MANAGER.lock().await.get(&message.sender_id).await;
         // 配置发送者用户名
-        send_content.push(elem::Text::new(format!(
-            "{}\n",
-            bridge_user.unwrap().to_string()
-        )));
+        send_content.push(elem::Text::new(format!("{}\n", bridge_user.unwrap().to_string())));
 
         for chain in &message.message_chain {
             match chain {
                 bridge::MessageContent::Reply { id } => {
                     if let Some(id) = id {
-                        let reply_message = bridge::manager::BRIDGE_MESSAGE_MANAGER
-                            .lock()
-                            .await
-                            .get(id)
-                            .await;
+                        let reply_message = bridge::manager::BRIDGE_MESSAGE_MANAGER.lock().await.get(id).await;
                         if let Some(reply_message) = reply_message {
                             to_reply_content(&mut send_content, reply_message, bot_id).await
                         } else {
@@ -115,7 +90,13 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
                 }
                 // 桥文本 转 qq文本
                 bridge::MessageContent::Plain { text } => {
-                    send_content.push(elem::Text::new(text.to_string()))
+                    let mention_text_list = parse_text_mention_rule(text.to_string());
+                    for mention_text in mention_text_list {
+                        match mention_text {
+                            MentionText::Text(text) => send_content.push(elem::Text::new(text)),
+                            MentionText::MentionText { name, id } => send_content.push(elem::At::new(id)),
+                        }
+                    }
                 }
                 // @桥用户 转 @qq用户 或 @文本
                 bridge::MessageContent::At { id } => proc_at(id, &mut send_content).await,
@@ -123,17 +104,12 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
                 bridge::MessageContent::Image(image) => {
                     debug!("桥消息-图片: {:?}", image);
                     match image.clone().load_data().await {
-                        Ok(data) => {
-                            match rq_client
-                                .upload_group_image(message.bridge_config.qqGroup as i64, data)
-                                .await
-                            {
-                                Ok(image) => {
-                                    send_content.push(image);
-                                }
-                                Err(_) => {}
+                        Ok(data) => match rq_client.upload_group_image(message.bridge_config.qqGroup as i64, data).await {
+                            Ok(image) => {
+                                send_content.push(image);
                             }
-                        }
+                            Err(_) => {}
+                        },
                         Err(_) => {}
                     }
                 }
@@ -257,15 +233,8 @@ async fn apply_bridge_user(id: u64, name: &str) -> bridge::user::BridgeUser {
 /**
  * 处理回复
  */
-async fn to_reply_content(
-    message_chain: &mut MessageChain,
-    reply_message: BridgeMessagePO,
-    uni: i64,
-) {
-    let refs = reply_message
-        .refs
-        .iter()
-        .find(|refs| refs.platform.eq("QQ"));
+async fn to_reply_content(message_chain: &mut MessageChain, reply_message: BridgeMessagePO, uni: i64) {
+    let refs = reply_message.refs.iter().find(|refs| refs.platform.eq("QQ"));
     let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
         .lock()
         .await
@@ -285,13 +254,9 @@ async fn to_reply_content(
                 bridge::MessageContent::Reply { .. } => {
                     reply_content.push(elem::Text::new("[回复消息]".to_string()));
                 }
-                bridge::MessageContent::Plain { text } => {
-                    reply_content.push(elem::Text::new(text.to_string()))
-                }
+                bridge::MessageContent::Plain { text } => reply_content.push(elem::Text::new(text.to_string())),
                 bridge::MessageContent::At { id } => proc_at(&id, &mut reply_content).await,
-                bridge::MessageContent::Image(..) => {
-                    reply_content.push(elem::Text::new("[图片]".to_string()))
-                }
+                bridge::MessageContent::Image(..) => reply_content.push(elem::Text::new("[图片]".to_string())),
                 _ => {}
             }
         }
@@ -328,4 +293,39 @@ async fn to_reply_content(
     //         ..Default::default()
     //     },
     // ));
+}
+
+/**
+ * 解析文本规则取出提及@[DC]用户的文本
+ */
+#[derive(Debug)]
+pub enum MentionText {
+    Text(String),
+    MentionText { name: String, id: i64 },
+}
+pub fn parse_text_mention_rule(text: String) -> Vec<MentionText> {
+    let mut text = text;
+    let mut chain: Vec<MentionText> = vec![];
+    let split_const = "#|x-x|#".to_string();
+    let reg_at_user = regex::Regex::new(r"@\[QQ\] ([^\n^@]+)\(([0-9]+)\)").unwrap();
+    while let Some(caps) = reg_at_user.captures(text.as_str()) {
+        println!("{:?}", caps);
+        let from = caps.get(0).unwrap().as_str();
+        let name = caps.get(1).unwrap().as_str().to_string();
+        let id = caps.get(2).unwrap().as_str().parse::<i64>().unwrap();
+
+        let result = text.replace(from, &split_const);
+        let splits: Vec<&str> = result.split(&split_const).collect();
+        let prefix = splits.get(0).unwrap();
+        chain.push(MentionText::Text(prefix.to_string()));
+        chain.push(MentionText::MentionText { name, id });
+        if let Some(fix) = splits.get(1) {
+            text = fix.to_string();
+        }
+    }
+    if (text.len() > 0) {
+        chain.push(MentionText::Text(text.to_string()));
+    }
+    println!("parse_text_mention_rule: {:?}", chain);
+    chain
 }

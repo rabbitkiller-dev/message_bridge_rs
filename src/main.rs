@@ -29,12 +29,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("config loaded");
     let bridge_service = bridge::BridgeService::new();
     let bridge_service = Arc::new(Mutex::new(bridge_service));
-    let bridge_dc_client =
-        bridge::BridgeService::create_client("bridge_dc_client", bridge_service.clone()).await;
-    let bridge_qq_client =
-        bridge::BridgeService::create_client("bridge_qq_client", bridge_service.clone()).await;
-    let bridge_tg_client =
-        bridge::BridgeService::create_client("bridge_tg_client", bridge_service.clone()).await;
+    let bridge_dc_client = bridge::BridgeService::create_client("bridge_dc_client", bridge_service.clone()).await;
+    let bridge_qq_client = bridge::BridgeService::create_client("bridge_qq_client", bridge_service.clone()).await;
+    let bridge_tg_client = bridge::BridgeService::create_client("bridge_tg_client", bridge_service.clone()).await;
     // let bridge_cmd_adapter =
     // bridge::BridgeService::create_client("bridge_cmd_adapter", bridge_service.clone()).await;
     // let a = Some(bridge_service.clone());
@@ -52,11 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn _init_tracing_subscriber() {
     tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::layer()
-                .with_target(true)
-                .without_time(),
-        )
+        .with(tracing_subscriber::fmt::layer().with_target(true).without_time())
         .with(
             tracing_subscriber::filter::Targets::new()
                 .with_target("ricq", Level::DEBUG)

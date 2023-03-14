@@ -12,7 +12,7 @@ use tracing::{debug, error, info, instrument, warn};
 
 use crate::bridge::pojo::BridgeMessagePO;
 use crate::bridge::user::BridgeUser;
-use crate::bridge::Image;
+use crate::bridge::{Image, MessageChain};
 
 // use crate::bridge_message_history::{BridgeMessageHistory, Platform};
 use crate::{bridge, bridge_dc, Config};
@@ -48,11 +48,24 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
         let mut fils: Vec<AttachmentType> = Vec::new();
         for chain in &message.message_chain {
             match chain {
-                bridge::MessageContent::Plain { text } => content.push(text.clone()),
-                bridge::MessageContent::Image(image) => match image {
-                    Image::Url(url) => {
-                        fils.push(AttachmentType::Image(url::Url::parse(url).unwrap()))
+                bridge::MessageContent::Plain { text } => {
+                    let mention_text_list = parse_text_mention_rule(text.to_string());
+                    for mention_text in mention_text_list {
+                        match mention_text {
+                            MentionText::Text(text) => content.push(text),
+                            MentionText::MentionText { name, discriminator } => {
+                                let member = find_member_by_name(&http, guild_id.0, &name, &discriminator).await;
+                                if let Some(member) = member {
+                                    content.push(format!("<@{}>", member.user.id.0));
+                                } else {
+                                    content.push(format!("@[DC] {}#{}", name, discriminator));
+                                }
+                            }
+                        }
                     }
+                }
+                bridge::MessageContent::Image(image) => match image {
+                    Image::Url(url) => fils.push(AttachmentType::Image(url::Url::parse(url).unwrap())),
                     Image::Path(path) => fils.push(AttachmentType::Path(Path::new(path))),
                     Image::Buff(data) => {
                         match image::guess_format(data) {
@@ -66,16 +79,9 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                 },
                 bridge::MessageContent::Reply { id } => {
                     if let Some(id) = id {
-                        let reply_message = bridge::manager::BRIDGE_MESSAGE_MANAGER
-                            .lock()
-                            .await
-                            .get(id)
-                            .await;
+                        let reply_message = bridge::manager::BRIDGE_MESSAGE_MANAGER.lock().await.get(id).await;
                         if let Some(reply_message) = reply_message {
-                            let refs = reply_message
-                                .refs
-                                .iter()
-                                .find(|refs| refs.platform.eq("DC"));
+                            let refs = reply_message.refs.iter().find(|refs| refs.platform.eq("DC"));
                             if let Some(refs) = refs {
                                 reply_message_id = refs.origin_id.clone();
                             }
@@ -86,11 +92,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                     }
                 }
                 bridge::MessageContent::At { id } => {
-                    let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
-                        .lock()
-                        .await
-                        .get(id)
-                        .await;
+                    let bridge_user = bridge::manager::BRIDGE_USER_MANAGER.lock().await.get(id).await;
                     if let None = bridge_user {
                         content.push(format!("@[UN] {}", id));
                         continue;
@@ -103,28 +105,6 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                     }
                     // 没有关联账号用标准格式发送消息
                     content.push(format!("@{}", bridge_user.to_string()));
-                    // trace!("用户'{}'收到@", username);
-                    // let re = Regex::new(r"@\[DC\] ([^\n]+)?#(\d\d\d\d)").unwrap();
-                    // let caps = re.captures(username);
-                    // match caps {
-                    //     Some(caps) => {
-                    //         let name = caps.get(1).unwrap();
-                    //         let dis = caps.get(2).unwrap();
-                    //         let member =
-                    //             find_member_by_name(&http, guild_id.0, name.as_str(), dis.as_str())
-                    //                 .await;
-                    //         if let Some(member) = member {
-                    //             content.push(format!("<@{}>", member.user.id.0));
-                    //         } else {
-                    //             content.push(username.clone());
-                    //             warn!("@用户无法解析: {}", username);
-                    //         }
-                    //     }
-                    //     None => {
-                    //         content.push(username.clone());
-                    //         warn!("@用户无法解析: {}", username);
-                    //     }
-                    // }
                 }
                 _ => warn!(unit = ?chain, "无法识别的MessageChain"),
             };
@@ -144,7 +124,7 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
                 }
                 debug!("消息头像url：{:?}", message.avatar_url);
                 // 配置发送者用户名
-                w.username(bridge_user.display_text);
+                w.username(bridge_user.to_string());
                 if content.len() == 0 && fils.len() == 0 {
                     content.push("{本次发送的消息没有内容}".to_string());
                 }
@@ -201,10 +181,8 @@ pub async fn dc(bridge: Arc<bridge::BridgeClient>, http: Arc<Http>) {
 pub async fn start(config: Arc<Config>, bridge: Arc<bridge::BridgeClient>) {
     tracing::info!("[DC] 初始化DC桥");
     let token = &config.discord_config.botToken;
-    let intents = GatewayIntents::GUILD_MESSAGES
-        | GatewayIntents::GUILD_MEMBERS
-        | GatewayIntents::DIRECT_MESSAGES
-        | GatewayIntents::MESSAGE_CONTENT;
+    let intents =
+        GatewayIntents::GUILD_MESSAGES | GatewayIntents::GUILD_MEMBERS | GatewayIntents::DIRECT_MESSAGES | GatewayIntents::MESSAGE_CONTENT;
 
     let mut client = Client::builder(&token, intents)
         .event_handler(bridge_dc::Handler {
@@ -271,19 +249,17 @@ pub async fn apply_bridge_user(id: u64, name: &str, discriminator: u16) -> Bridg
  * 通过名称和discriminator查询成员
  */
 #[instrument(level = "debug", skip(http), ret)]
-pub async fn find_member_by_name(
-    http: &Http,
-    guild_id: u64,
-    nickname: &str,
-    discriminator: &str,
-) -> Option<Member> {
+pub async fn find_member_by_name(http: &Http, guild_id: u64, nickname: &str, discriminator: &str) -> Option<Member> {
     let members = http.get_guild_members(guild_id, None, None).await.unwrap();
-    let member = members.into_iter().find(|member| {
-        member.user.name == nickname && member.user.discriminator.to_string() == discriminator
-    });
+    let member = members
+        .into_iter()
+        .find(|member| member.user.name == nickname && member.user.discriminator.to_string() == discriminator);
     member
 }
 
+/**
+ * 将桥消息转化成回复dc的消息
+ */
 pub async fn to_reply_content(reply_message: BridgeMessagePO) -> Vec<String> {
     let user = match bridge::manager::BRIDGE_USER_MANAGER
         .lock()
@@ -305,11 +281,7 @@ pub async fn to_reply_content(reply_message: BridgeMessagePO) -> Vec<String> {
             bridge::MessageContent::Image(..) => content.push_str("[图片]"),
             bridge::MessageContent::Reply { .. } => content.push_str("[回复消息]"),
             bridge::MessageContent::At { id } => {
-                let bridge_user = bridge::manager::BRIDGE_USER_MANAGER
-                    .lock()
-                    .await
-                    .get(&id)
-                    .await;
+                let bridge_user = bridge::manager::BRIDGE_USER_MANAGER.lock().await.get(&id).await;
                 if let None = bridge_user {
                     content.push_str(format!("@[UN] {}", id).as_str());
                     continue;
@@ -333,4 +305,40 @@ pub async fn to_reply_content(reply_message: BridgeMessagePO) -> Vec<String> {
     }
     // result.push(value)
     result
+}
+
+/**
+ * 解析文本规则取出提及@[DC]用户的文本
+ */
+#[derive(Debug)]
+pub enum MentionText {
+    Text(String),
+    MentionText { name: String, discriminator: String },
+}
+pub fn parse_text_mention_rule(text: String) -> Vec<MentionText> {
+    let mut text = text;
+    let mut chain: Vec<MentionText> = vec![];
+    let split_const = "#|x-x|#".to_string();
+    let reg_at_user = regex::Regex::new(r"@\[DC\] ([^\n^#^@]+)?#(\d\d\d\d)").unwrap();
+    // let caps = reg_at_user.captures(text);
+    while let Some(caps) = reg_at_user.captures(text.as_str()) {
+        println!("{:?}", caps);
+        let from = caps.get(0).unwrap().as_str();
+        let name = caps.get(1).unwrap().as_str().to_string();
+        let discriminator = caps.get(2).unwrap().as_str().to_string();
+
+        let result = text.replace(from, &split_const);
+        let splits: Vec<&str> = result.split(&split_const).collect();
+        let prefix = splits.get(0).unwrap();
+        chain.push(MentionText::Text(prefix.to_string()));
+        chain.push(MentionText::MentionText { name, discriminator });
+        if let Some(fix) = splits.get(1) {
+            text = fix.to_string();
+        }
+    }
+    if (text.len() > 0) {
+        chain.push(MentionText::Text(text.to_string()));
+    }
+    println!("parse_text_mention_rule: {:?}", chain);
+    chain
 }
