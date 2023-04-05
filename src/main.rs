@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bridge_service = Arc::new(Mutex::new(bridge_service));
     let bridge_dc_client = bridge::BridgeService::create_client("bridge_dc_client", bridge_service.clone()).await;
     let bridge_qq_client = bridge::BridgeService::create_client("bridge_qq_client", bridge_service.clone()).await;
-    let bridge_tg_client = bridge::BridgeService::create_client("bridge_tg_client", bridge_service.clone()).await;
+    let _bridge_tg_client = bridge::BridgeService::create_client("bridge_tg_client", bridge_service.clone()).await;
     let bridge_cmd_client = bridge::BridgeService::create_client("bridge_cmd_client", bridge_service.clone()).await;
 
     tokio::select! {

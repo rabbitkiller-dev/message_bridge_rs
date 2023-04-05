@@ -8,23 +8,19 @@ use serde::Deserialize;
 use serde::Serialize;
 use tokio::sync::broadcast;
 
-use crate::{bridge, elo, elr};
+use crate::bridge;
 use crate::bridge::BridgeClientPlatform::*;
 
+pub use bridge_message::{BridgeMessage, Image, MessageChain, MessageContent};
+
 pub mod bridge_message;
-pub mod command;
 pub mod manager;
 pub mod pojo;
 pub mod user;
 
-pub use bridge_message::{BridgeMessage, Image, MessageChain, MessageContent};
-
-use self::command::CommandMessageParser;
-
 /// 解析枚举文本错误
 #[derive(Debug)]
 pub struct ParseEnumErr(String);
-
 impl Display for ParseEnumErr {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.0)
@@ -48,14 +44,12 @@ pub enum BridgeClientPlatform {
     Cmd = 1 << 2,
     Telegram = 1 << 3,
 }
-
 impl BitOr for BridgeClientPlatform {
     type Output = u64;
     fn bitor(self, rhs: Self) -> Self::Output {
         self as u64 | rhs as u64
     }
 }
-
 impl Display for BridgeClientPlatform {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let name = match self {
@@ -67,7 +61,6 @@ impl Display for BridgeClientPlatform {
         write!(f, "{}", name)
     }
 }
-
 impl FromStr for BridgeClientPlatform {
     type Err = ParseEnumErr;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -80,7 +73,6 @@ impl FromStr for BridgeClientPlatform {
         })
     }
 }
-
 impl BridgeClientPlatform {
     /// 数值转枚举
     pub fn by(val: u64) -> Option<Self> {
@@ -154,9 +146,7 @@ impl BridgeClient {
      * 向其它桥发送消息
      */
     pub async fn send_message(&self, message: bridge::pojo::BridgeSendMessageForm) {
-        let msg_cp_cmd = message.clone();
         let bridge = self.bridge.lock().await;
-        let id = bridge::manager::BRIDGE_MESSAGE_MANAGER.lock().await.save(message.clone()).await;
 
         // let client = bridge
         //     .clients
@@ -164,10 +154,10 @@ impl BridgeClient {
         //     .filter(|client| &client.name != &self.name);
 
         let bridge_message = bridge::BridgeMessage {
-            id: id.clone(),
-            sender_id: message.sender_id.clone(),
-            avatar_url: message.avatar_url.clone(),
-            bridge_config: message.bridge_config.clone(),
+            id: bridge::manager::BRIDGE_MESSAGE_MANAGER.lock().await.save(message.clone()).await,
+            sender_id: message.sender_id,
+            avatar_url: message.avatar_url,
+            bridge_config: message.bridge_config,
             message_chain: message.message_chain,
         };
 
@@ -178,26 +168,5 @@ impl BridgeClient {
                 }
             }
         }
-
-        // 尝试解析指令
-        let cmd = elo!(msg_cp_cmd.try_parse() ;; return);
-        tracing::info!("[指令] {:?}", cmd.token);
-        let message_chain = elr!(cmd.process(&msg_cp_cmd) ;; return);
-        let feedback = bridge::BridgeMessage {
-            bridge_config: message.bridge_config.clone(),
-            sender_id: message.sender_id.clone(),
-            avatar_url: None,
-            message_chain,
-            id,
-        };
-        // 指令反馈
-        for client in bridge.clients.iter() {
-            if &client.name != &self.name {
-                continue;
-            }
-            if let Err(e) = client.sender.send(feedback.clone()) {
-                tracing::error!("消息中转异常：{e:#?}");
-            }
-        }// for
     }
 }
