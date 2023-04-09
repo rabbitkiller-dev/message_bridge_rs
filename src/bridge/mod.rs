@@ -11,17 +11,16 @@ use tokio::sync::broadcast;
 use crate::bridge;
 use crate::bridge::BridgeClientPlatform::*;
 
+pub use bridge_message::{BridgeMessage, Image, MessageChain, MessageContent};
+
 pub mod bridge_message;
 pub mod manager;
 pub mod pojo;
 pub mod user;
 
-pub use bridge_message::{BridgeMessage, Image, MessageChain, MessageContent};
-
 /// 解析枚举文本错误
 #[derive(Debug)]
 pub struct ParseEnumErr(String);
-
 impl Display for ParseEnumErr {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.0)
@@ -40,19 +39,17 @@ impl Display for ParseEnumErr {
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize)]
 #[repr(u64)]
 pub enum BridgeClientPlatform {
-    Discord = 1 << 0,
+    Discord = 1,
     QQ = 1 << 1,
     Cmd = 1 << 2,
     Telegram = 1 << 3,
 }
-
 impl BitOr for BridgeClientPlatform {
     type Output = u64;
     fn bitor(self, rhs: Self) -> Self::Output {
         self as u64 | rhs as u64
     }
 }
-
 impl Display for BridgeClientPlatform {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let name = match self {
@@ -64,28 +61,28 @@ impl Display for BridgeClientPlatform {
         write!(f, "{}", name)
     }
 }
-
 impl FromStr for BridgeClientPlatform {
     type Err = ParseEnumErr;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.eq_ignore_ascii_case("dc") {
-            Ok(Discord)
-        } else if s.eq_ignore_ascii_case("qq") {
-            Ok(QQ)
-        } else {
-            Err(ParseEnumErr(format!("平台'{}'未定义", s)))
-        }
+        Ok(match &*s.to_lowercase() {
+            "dc" => Discord,
+            "qq" => QQ,
+            "cmd" => Cmd,
+            "tg" => Telegram,
+            _ => return Err(ParseEnumErr(format!("平台'{}'未定义", s))),
+        })
     }
 }
-
 impl BridgeClientPlatform {
     /// 数值转枚举
     pub fn by(val: u64) -> Option<Self> {
-        match val {
-            1 => Some(Discord),
-            2 => Some(QQ),
-            _ => None,
-        }
+        Some(match val {
+            1 => Discord,
+            2 => QQ,
+            4 => Cmd,
+            8 => Telegram,
+            _ => return None,
+        })
     }
 }
 
@@ -116,13 +113,9 @@ impl BridgeService {
         BridgeService { clients: vec![] }
     }
 
-    pub async fn create_client(
-        name: &str,
-        service: Arc<Mutex<BridgeService>>,
-    ) -> Arc<BridgeClient> {
+    pub async fn create_client(name: &str, service: Arc<Mutex<BridgeService>>) -> Arc<BridgeClient> {
         let clients = &mut service.lock().await.clients;
-        let exist = clients.iter().find(|client| &client.name == name);
-        if let Some(_) = exist {
+        if clients.iter().any(|client| client.name == name) {
             panic!("存在同一个桥名: {}", name);
         }
         let client = Arc::new(BridgeClient::new(name, service.clone()));
@@ -154,23 +147,16 @@ impl BridgeClient {
      */
     pub async fn send_message(&self, message: bridge::pojo::BridgeSendMessageForm) {
         let bridge = self.bridge.lock().await;
-        let id = bridge::manager::BRIDGE_MESSAGE_MANAGER
-            .lock()
-            .await
-            .save(message.clone())
-            .await;
 
         // let client = bridge
         //     .clients
         //     .iter()
         //     .filter(|client| &client.name != &self.name);
 
-        let sender_id = message.sender_id.clone();
-        let avatar_url = message.avatar_url.clone();
         let bridge_message = bridge::BridgeMessage {
-            id,
-            sender_id,
-            avatar_url,
+            id: bridge::manager::BRIDGE_MESSAGE_MANAGER.lock().await.save(message.clone()).await,
+            sender_id: message.sender_id,
+            avatar_url: message.avatar_url,
             bridge_config: message.bridge_config,
             message_chain: message.message_chain,
         };
@@ -178,7 +164,7 @@ impl BridgeClient {
         for client in bridge.clients.iter() {
             if &client.name != &self.name {
                 if let Err(e) = client.sender.send(bridge_message.clone()) {
-                    println!("消息中转异常：{:#?}", e);
+                    tracing::error!("消息中转异常：{:#?}", e);
                 }
             }
         }

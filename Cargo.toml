@@ -49,6 +49,10 @@ features = [
 version = "^2.1"
 features = ["serde"]
 
+[dependencies.clap]
+version = "^4.1"
+features = ["derive"]
+
 [dev-dependencies]
 tokio-test = "*"
 

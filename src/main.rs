@@ -7,16 +7,13 @@ use tracing::{info, Level};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod bridge;
-// mod bridge_cmd;
-// mod bridge_data;
+mod bridge_cmd;
 mod bridge_dc;
 mod bridge_log;
 mod bridge_qq;
 mod bridge_tg;
-// mod cmd_adapter;
 mod config;
 mod logger;
-// mod test_dc;
 mod utils;
 
 pub type HttpResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -31,17 +28,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bridge_service = Arc::new(Mutex::new(bridge_service));
     let bridge_dc_client = bridge::BridgeService::create_client("bridge_dc_client", bridge_service.clone()).await;
     let bridge_qq_client = bridge::BridgeService::create_client("bridge_qq_client", bridge_service.clone()).await;
-    let bridge_tg_client = bridge::BridgeService::create_client("bridge_tg_client", bridge_service.clone()).await;
-    // let bridge_cmd_adapter =
-    // bridge::BridgeService::create_client("bridge_cmd_adapter", bridge_service.clone()).await;
-    // let a = Some(bridge_service.clone());
-    info!("bridge ready");
+    let _bridge_tg_client = bridge::BridgeService::create_client("bridge_tg_client", bridge_service.clone()).await;
+    let bridge_cmd_client = bridge::BridgeService::create_client("bridge_cmd_client", bridge_service.clone()).await;
 
     tokio::select! {
         _ = bridge_dc::start(config.clone(), bridge_dc_client) => {},
         _ = bridge_qq::start(config.clone(), bridge_qq_client) => {},
         // _ = bridge_tg::start(config.clone(), bridge_tg_client) => {},
-        // _ = cmd_adapter::start(config.clone(), bridge_cmd_adapter) => {},
+        _ = bridge_cmd::start(config.clone(), bridge_cmd_client) => {},
     }
 
     Ok(())
