@@ -1,3 +1,5 @@
+// TODO 交互式操作的上下文
+
 use clap::{FromArgMatches, Subcommand};
 use std::sync::Arc;
 
@@ -14,6 +16,7 @@ use super::{BridgeCommand, CommandCentext, CommandMessageParser};
 
 /// 识别解析以 BridgeMessage 为载体的指令
 impl CommandMessageParser<BridgeMessage> for BridgeMessage {
+    #[tracing::instrument(skip_all)]
     fn try_parse(&self, from_client: &str) -> Result<CommandCentext<BridgeMessage>, &'static str> {
         let ctx = &self.message_chain;
         let Some(MessageContent::Plain { text }) = ctx.first() else {
@@ -43,6 +46,7 @@ impl CommandMessageParser<BridgeMessage> for BridgeMessage {
 }
 
 /// 接收桥内消息，尝试处理
+#[tracing::instrument(skip_all)]
 pub async fn listen(bridge: Arc<BridgeClient>) {
     let mut subs = bridge.sender.subscribe();
     loop {
@@ -57,10 +61,10 @@ pub async fn listen(bridge: Arc<BridgeClient>) {
         };
         tracing::info!("[指令] {:?}", cmd.token);
         // 指令反馈
-        let feedback = match cmd.process_command() {
+        let feedback = match cmd.process_command().await {
             Ok(fb) => fb,
             Err(e) => {
-                tracing::warn!("{e}");
+                tracing::error!("{e}");
                 continue;
             }
         };

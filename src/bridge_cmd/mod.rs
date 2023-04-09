@@ -3,38 +3,29 @@ use clap::Parser;
 use std::sync::Arc;
 
 pub mod bridge_client;
-pub mod default_process;
+pub mod process;
 
 pub const CMD_TIP: &str = "!help";
-pub const CMD_BIND: &str = "!绑定";
-pub const CMD_UNBIND: &str = "!解除绑定";
-pub const CMD_CONFIRM_BIND: &str = "!确认绑定";
+pub const CMD_BIND: &str = "!关联";
+pub const CMD_UNBIND: &str = "!解除关联";
+pub const CMD_CONFIRM_BIND: &str = "!确认关联";
 
 #[derive(Parser, Debug)]
 pub enum BridgeCommand {
-    /// 指令提示
-    #[command(name = CMD_TIP)]
-    Tips {
-        /// 获取[command]的提示
-        command: Option<String>,
-    },
-    /// 申请绑定
     #[command(name = CMD_BIND)]
     Bind {
-        /// 指定目标所属平台
-        platform: String,
-        /// 指定用户+id。例：you(1234)
-        user: String,
+        token: Option<String>,
     },
-    /// 解除绑定
     #[command(name = CMD_UNBIND)]
     Unbind {
-        /// 指定解绑哪个平台
         platform: String,
     },
-    /// 确认绑定
     #[command(name = CMD_CONFIRM_BIND)]
     ConfirmBind,
+    #[command(name = CMD_TIP)]
+    Tips {
+        command: Option<String>,
+    },
 }
 
 /// 指令内容

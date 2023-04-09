@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 
 use crate::bridge::pojo::BridgeUserSaveForm;
 use crate::bridge::user::BridgeUser;
+use crate::elo;
 
 pub struct BridgeUserManager {
     bridge_users: Vec<BridgeUser>,
@@ -66,11 +67,12 @@ impl BridgeUserManager {
 
     /// 保存一条新的用户
     pub async fn save(&mut self, form: BridgeUserSaveForm) -> Result<BridgeUser, String> {
-        if let Some(_) = self.like(&form.origin_id, &form.platform).await {
+        if self.like(&form.origin_id, &form.platform).await.is_some() {
             let help = format!(
                 "该平台{:}已存在用户id为{:}的用户",
                 &form.platform, &form.origin_id
             );
+            tracing::info!("{help}");
             return Err(help);
         }
         let user = BridgeUser {
@@ -83,6 +85,30 @@ impl BridgeUserManager {
         self.bridge_users.push(user.clone());
         self.serialize();
         Ok(user)
+    }
+
+    /// # 批量保存的用户
+    /// ### Argument
+    /// `queue` 待更新队列
+    /// ### Returns
+    /// - `Ok(..)` 更新行数
+    /// - `Err(..)` 失败描述
+    pub async fn batch_update(&mut self, queue: &[BridgeUser]) -> Result<usize, String> {
+        let mut count = 0;
+        for item in queue {
+            let old = elo! {
+                self.bridge_users.iter_mut().find(|t| t.id == item.id)
+                ;;// else
+                continue
+            };
+            old.display_text = item.display_text.clone();
+            old.origin_id = item.origin_id.clone();
+            old.platform = item.platform.clone();
+            old.ref_id = item.ref_id.clone();
+            count += 1;
+        }
+        self.serialize();
+        Ok(count)
     }
 
     fn serialize(&self) {
