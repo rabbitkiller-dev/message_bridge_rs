@@ -69,6 +69,14 @@ macro_rules! elr {
             $ret
         }
     };
+    ($opt:expr ;; $e:tt -> $ret:expr) => {
+        match $opt {
+            Ok(v) => v,
+            Err($e) => {
+                $ret
+            }
+        }
+    };
 }
 /// # 2元表达式宏 - Option
 /// ## Example
