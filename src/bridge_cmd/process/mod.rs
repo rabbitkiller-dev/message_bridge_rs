@@ -2,6 +2,7 @@
 //! TODO 枚举所有错误
 
 mod bind_proc;
+mod token;
 
 use tracing::instrument;
 
@@ -26,7 +27,7 @@ impl CommandCentext<BridgeMessage> {
     /// 验证口令
     #[instrument(skip_all)]
     async fn req_bind(&self) -> Feedback {
-        let Ok(token) = bind_proc::add_req(&self.src_msg.sender_id).await else {
+        let Ok(token) = bind_proc::create_session(&self.src_msg.sender_id).await else {
             return simple_fail("申请失败，请联系管理员处理。");
         };
         Ok(vec![MessageContent::Plain {
@@ -38,8 +39,8 @@ impl CommandCentext<BridgeMessage> {
     /// ### Argument
     /// `token` 验证口令
     #[instrument(skip_all)]
-    async fn resp_bind(&self, token: String) -> Feedback {
-        if let Err(e) = bind_proc::update_resp(token, &self.src_msg.sender_id).await {
+    async fn resp_bind(&self, token: &str) -> Feedback {
+        if let Err(e) = bind_proc::update_resp(&token, &self.src_msg.sender_id).await {
             tracing::error!("{e}");
             return simple_fail("提交失败，请联系管理员处理。");
         }
@@ -48,10 +49,8 @@ impl CommandCentext<BridgeMessage> {
 
     /// 申请/回应用户关联
     async fn bind(&self) -> Feedback {
-        if let BridgeCommand::Bind { token } = &self.token {
-            if let Some(t) = token {
-                return self.resp_bind(t.clone()).await;
-            }
+        if let BridgeCommand::Bind { token: Some(t) } = &self.token {
+            return self.resp_bind(t).await;
         }
         self.req_bind().await
     }
@@ -84,13 +83,11 @@ impl CommandCentext<BridgeMessage> {
     /// 获取指令帮助
     fn get_help(&self) -> Feedback {
         let mut sub = "".to_string();
-        if let BridgeCommand::Tips { command } = &self.token {
-            if let Some(tmp) = command {
-                if tmp.starts_with('!') {
-                    sub = tmp.to_owned();
-                } else {
-                    sub = format!("!{tmp}");
-                }
+        if let BridgeCommand::Tips { command: Some(cmd) } = &self.token {
+            if cmd.starts_with('!') {
+                sub = cmd.to_owned();
+            } else {
+                sub = format!("!{cmd}");
             }
         }
         // TODO 文本内容通过 toml 文件读写

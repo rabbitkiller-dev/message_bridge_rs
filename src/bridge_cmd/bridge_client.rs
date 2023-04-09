@@ -77,7 +77,7 @@ pub async fn listen(bridge: Arc<BridgeClient>) {
                 origin_id: uuid::Uuid::new_v4().to_string(),
                 platform: "CMD".to_string(),
             },
-            avatar_url: Some(format!("https://q1.qlogo.cn/g?b=qq&nk=3245538509&s=100")),
+            avatar_url: Some("https://q1.qlogo.cn/g?b=qq&nk=3245538509&s=100".to_string()),
             bridge_config: message.bridge_config.clone(),
             message_chain: feedback,
             sender_id: user.id,
