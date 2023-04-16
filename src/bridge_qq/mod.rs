@@ -94,7 +94,7 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
                     for mention_text in mention_text_list {
                         match mention_text {
                             MentionText::Text(text) => send_content.push(elem::Text::new(text)),
-                            MentionText::MentionText { name, id } => send_content.push(elem::At::new(id)),
+                            MentionText::MentionText { id, .. } => send_content.push(elem::At::new(id)),
                         }
                     }
                 }
@@ -323,7 +323,7 @@ pub fn parse_text_mention_rule(text: String) -> Vec<MentionText> {
             text = fix.to_string();
         }
     }
-    if (text.len() > 0) {
+    if text.len() > 0 {
         chain.push(MentionText::Text(text.to_string()));
     }
     println!("parse_text_mention_rule: {:?}", chain);
