@@ -20,9 +20,7 @@ impl BridgeUserManager {
             let bridge_users: Vec<BridgeUser> = serde_json::from_str(file.as_str()).unwrap();
             return BridgeUserManager { bridge_users };
         }
-        BridgeUserManager {
-            bridge_users: vec![],
-        }
+        BridgeUserManager { bridge_users: vec![] }
     }
 
     /// 根据id查询指定用户
@@ -56,7 +54,7 @@ impl BridgeUserManager {
     pub async fn findByRefAndPlatform(&self, ref_id: &str, platform: &str) -> Option<BridgeUser> {
         for user in &self.bridge_users {
             if let None = user.ref_id {
-                return None;
+                continue;
             }
             if ref_id.eq(user.ref_id.as_ref().unwrap()) && platform.eq(&user.platform) {
                 return Some(user.clone());
@@ -68,10 +66,7 @@ impl BridgeUserManager {
     /// 保存一条新的用户
     pub async fn save(&mut self, form: BridgeUserSaveForm) -> Result<BridgeUser, String> {
         if self.like(&form.origin_id, &form.platform).await.is_some() {
-            let help = format!(
-                "该平台{:}已存在用户id为{:}的用户",
-                &form.platform, &form.origin_id
-            );
+            let help = format!("该平台{:}已存在用户id为{:}的用户", &form.platform, &form.origin_id);
             tracing::info!("{help}");
             return Err(help);
         }
