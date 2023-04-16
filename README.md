@@ -11,10 +11,28 @@
 
 ## 环境要求
 1. 科学上网
-2. NodeJs (v14 以上)
-3. 配置config.json文件
+2. [NodeJs (v14 以上)](https://nodejs.org/en)
+3. Rust: `curl https://sh.rustup.rs -sSf | sh`
+3. Git
 
-> CenterOS
+## Windows10 本地运行
+环境配置
+
+1. 配置rust默认使用nightly运行
+> rustup default nightly 
+
+2. 配置config.json
+
+> 复制config.simple.json文件并重命令为config.json
+
+3. 启动解释discord消息服务
+> npm install <br>
+> npm start
+
+4. 运行桥服务
+> cargo run
+
+##  CenterOS
 > 安装命令参考
 
 1. [Git](https://git-scm.com/download/linux): 命令: `yum install git`
@@ -23,7 +41,7 @@
 4. [Rust + Cargo](https://forge.rust-lang.org/infra/other-installation-methods.html): 命令: `curl https://sh.rustup.rs -sSf | sh`
 5. 配置文件: `cp config.simple.json config.json` 配置说明: CONFIG.md ((TODO: 说明config.json怎么配置))
 
-## 部署方式
+## CenterOS 部署方式
 
 > ps: 以上环境请务必自选解决
 
