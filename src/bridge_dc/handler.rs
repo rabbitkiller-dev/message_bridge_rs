@@ -25,6 +25,9 @@ impl EventHandler for Handler {
             // 收到自己bot的消息, 不要继续以免消息循环
             return;
         }
+        if filter_message(&msg) {
+            return;
+        }
 
         // 收到桥配置的webhook消息, 不要继续以免消息循环
         if self.config.bridges.iter().any(|bridge| msg.author.id == bridge.discord.id) {
@@ -195,4 +198,21 @@ async fn to_reply_bridge_message(reply: MessageReference) -> bridge::MessageCont
     MessageContent::Err {
         message: "回复一条DC消息, 但是同步回复消息失败".to_string(),
     }
+}
+
+/**
+ * 过滤不同步的消息
+ * @return true: 不同步
+ * TODO: 从配置文件读取
+ */
+fn filter_message(msg: &Message) -> bool {
+    let mut regex_config: Vec<String> = vec![];
+    regex_config.push("Issue labeled by .*".to_string());
+    for regex_str in regex_config {
+        let regex = regex::Regex::new(regex_str.as_str()).unwrap();
+        if regex.is_match(msg.content.as_str()) {
+            return true;
+        }
+    }
+    false
 }
