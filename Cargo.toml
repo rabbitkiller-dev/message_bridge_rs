@@ -28,8 +28,8 @@ mime = "0.3.16"
 mime_guess = "2.0.4"
 md5 = "0.7.0"
 image-base64 = "0.1.0"
-proc_qq = "0.1.29"
 anyhow = "1.0.69"
+proc_qq = { git = "https://github.com/niuhuan/rust_proc_qq.git", rev = "dda3d45" }
 teleser = { git = "https://github.com/niuhuan/teleser-rs.git", branch = "patched", features = ["proxy"] }
 
 [dependencies.serenity]

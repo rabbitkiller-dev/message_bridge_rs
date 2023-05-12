@@ -21,7 +21,7 @@ pub async fn upload_group_image(group_id: u64, url: &str, rq_client: Arc<RqClien
     let client = reqwest::Client::new();
     let stream = client.get(url).send().await?;
     let img_bytes = stream.bytes().await.unwrap();
-    let group_image = rq_client.upload_group_image(group_id as i64, img_bytes.to_vec()).await?;
+    let group_image = rq_client.upload_group_image(group_id as i64, img_bytes.as_ref()).await?;
     Ok(group_image)
 }
 
@@ -104,7 +104,10 @@ pub async fn sync_message(bridge: Arc<bridge::BridgeClient>, rq_client: Arc<RqCl
                 bridge::MessageContent::Image(image) => {
                     debug!("桥消息-图片: {:?}", image);
                     match image.clone().load_data().await {
-                        Ok(data) => match rq_client.upload_group_image(message.bridge_config.qqGroup as i64, data).await {
+                        Ok(data) => match rq_client
+                            .upload_group_image(message.bridge_config.qqGroup as i64, data.as_slice())
+                            .await
+                        {
                             Ok(image) => {
                                 send_content.push(image);
                             }
