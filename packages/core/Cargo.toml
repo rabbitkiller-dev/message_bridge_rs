@@ -1,11 +1,9 @@
 [package]
-name = "message_bridge_rs"
+name = "core"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
-[workspace]
-members = ["packages/core", "packages/server", "examples/axum_run_bot"]
+axum = "0.6.18"
