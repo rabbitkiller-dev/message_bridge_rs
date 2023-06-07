@@ -1,0 +1,7 @@
+{
+    "recommendations": [
+        "ms-vscode-remote.remote-wsl",
+        "eamodio.gitlens",
+        "swellaby.rust-pack"
+    ]
+}
