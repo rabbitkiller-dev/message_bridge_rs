@@ -1,2 +1,2 @@
 [workspace]
-members = ["packages/core", "packages/server", "examples/axum_run_bot"]
+members = ["packages/core", "packages/server", "examples/axum_run_bot", "examples/sqlite_config"]

@@ -1,0 +1,23 @@
+[package]
+name = "sqlite_config"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+#rbatis deps
+rbs = { version = "4.3"}
+rbatis = { version = "4.3"}
+rbdc-sqlite = { version = "4.3" }
+#rbdc-mysql={version="4.3"}
+#rbdc-pg={version="4.3"}
+#rbdc-mssql={version="4.3"}
+
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+log = "0.4"
+fast_log = "1.5"
+
+
+
