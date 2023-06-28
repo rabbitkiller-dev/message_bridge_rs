@@ -8,6 +8,33 @@ THIS IS NOT A RELEASE YET
 
 * (bug #17) docs: Update RELEASE-NOTES for 1.0.0-alpha.1, 1.0.0-alpha.2,
   1.0.0-alpha.3
+* (bug #18) Upgrade dependency 'proc_qq'
+* fix: Fix missing QQ user nickname
+* (bug #20) feat: Add bridge relay for Telegram
+* (bug #21) feat: 增加桥消息管理, 序列化存储桥消息&重构发送消息的操作 - part 1
+* (bug #21) feat: 增加桥消息管理, 序列化存储桥消息&重构发送消息的操作 - part 2
+* (bug #21) feat: 增加桥消息管理, 序列化存储桥消息&重构发送消息的操作 - part 3
+* (bug #21) feat: qq和dc平台的消息发送和接收同步都绑定到桥消息中
+* (bug #21) feat: 完善回复消息功能 - part 1 (50%)
+* (bug #21) feat: 完善回复消息功能 - part 2 (80%)
+* (bug #21) feat: 完善回复消息功能 - part 3 (80%)
+* (bug #21) feat: 调整rq配置
+* (bug #21) rq使用配置来初始化
+* (bug #21) feat: 完善回复消息功能 - part 4
+* (bug #24) 调整模块位置
+* (bug #24) feat: dc和qq支持跨平台提及at用户功能 - part 1
+* (bug #24) feat: dc和qq支持跨平台提及at用户功能 - part 2
+* (bug #30) feat: 使用 clap 库解析指令消息
+* (bug #30) feat: 实现指令提示
+* (bug #30) feat: 增加桥命令客户端
+* (bug #30) 转移指令模块；调整结构
+* (bug #30) feat: 重做关联指令(原绑定)
+* (bug #33) doc: 增加文本说明
+* (bug #33) feat(bridge_dc): 增加过滤消息方法
+* (bug #34) fix(bridge): 修复查询另一个平台用用户逻辑错误
+* (bug #36) doc: 更新dc链接&修改命令使用说明
+* (bug #37) fix: Check脚本
+* (bug #40) Update RELEASE-NOTES-1.0
 
 ## message_bridge_rs 1.0.0-alpha.3
 
